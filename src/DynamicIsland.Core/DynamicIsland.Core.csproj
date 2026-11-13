@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Ortak katman: Spotify/GSMTC medya bağlantısı, ayarlar, durum mantığı, yerleşim hesabı.
+       WPF'ye bağımlı değildir; masaüstü adası ve Game Bar sunumu tarafından paylaşılır. -->
+  <PropertyGroup>
+    <TargetFramework>$(WindowsTargetFramework)</TargetFramework>
+    <RootNamespace>DynamicIsland.Core</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="DynamicIsland.Tests" />
+  </ItemGroup>
+
+</Project>

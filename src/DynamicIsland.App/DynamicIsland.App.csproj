@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>$(WindowsTargetFramework)</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <!-- Yalnızca sistem tepsisi simgesi (NotifyIcon) için. -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>DynamicIsland.App</RootNamespace>
+    <AssemblyName>DinamikAda</AssemblyName>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- WPF Fluent teması (.NET 9+) deneysel API uyarısı -->
+    <!-- WFO0003: DPI farkındalığı WPF için app.manifest'te (PerMonitorV2) tanımlanır; bilinçli tercih. -->
+    <NoWarn>$(NoWarn);WPF0001;WFO0003</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- WinForms örtük using'leri WPF türleriyle çakışmasın. -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DynamicIsland.Core\DynamicIsland.Core.csproj" />
+    <ProjectReference Include="..\DynamicIsland.Interop\DynamicIsland.Interop.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\app.ico" />
+  </ItemGroup>
+
+</Project>

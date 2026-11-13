@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Test/teşhis aracı: GSMTC oturumlarını listeler, ortak Core katmanını canlı izler ve medya komutu gönderir. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>$(WindowsTargetFramework)</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DynamicIsland.Core\DynamicIsland.Core.csproj" />
+  </ItemGroup>
+
+</Project>

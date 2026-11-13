@@ -1,0 +1,14 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Windows Runtime (GSMTC) projeksiyonları için Windows SDK TFM'i -->
+    <WindowsTargetFramework>net10.0-windows10.0.22621.0</WindowsTargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <Version>1.0.0</Version>
+    <Company>Dinamik Ada</Company>
+    <Product>Dinamik Ada for Spotify</Product>
+    <Copyright>© 2026</Copyright>
+  </PropertyGroup>
+</Project>
