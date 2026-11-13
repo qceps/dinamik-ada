@@ -70,6 +70,31 @@ switch (command)
         break;
     }
 
+    case "volume":
+    {
+        // MediaProbe volume [spotify-seviye-0..1] [saniye]: Spotify uygulama sesini ve sistem sesini okur,
+        // seviye verilirse Spotify'ı ayarlar; sonra verilen süre boyunca sistem sesi değişimlerini yazar.
+        Console.WriteLine("Ses oturumları: " + string.Join(", ", await Task.Run(DynamicIsland.Interop.AppVolume.ListSessionProcesses)));
+        Console.WriteLine($"Spotify (önce): {Describe(await Task.Run(() => DynamicIsland.Interop.AppVolume.Get("Spotify")))}");
+        if (args.Length > 1 && float.TryParse(args[1], System.Globalization.CultureInfo.InvariantCulture, out var target))
+        {
+            var ok = await Task.Run(() => DynamicIsland.Interop.AppVolume.Set("Spotify", target, null));
+            Console.WriteLine($"Spotify ayarlandı: {ok} -> {Describe(await Task.Run(() => DynamicIsland.Interop.AppVolume.Get("Spotify")))}");
+        }
+
+        using var watcher = await DynamicIsland.Interop.SystemVolumeWatcher.StartAsync();
+        Console.WriteLine($"Sistem: {Describe(watcher?.Current)}");
+        if (watcher is not null)
+        {
+            watcher.Changed += s => Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] sistem değişti: {Describe(s)}");
+        }
+
+        await Task.Delay(TimeSpan.FromSeconds(args.Length > 2 ? double.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture) : 0));
+        break;
+
+        static string Describe(DynamicIsland.Interop.VolumeState? s) => s is { } v ? $"%{v.Level * 100:0}{(v.Muted ? " (sessiz)" : "")}" : "oturum yok";
+    }
+
     case "events":
     {
         // Ham GSMTC olay sıklığını ölçer (Spotify oturumu).

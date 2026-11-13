@@ -145,7 +145,7 @@ public sealed class ArtworkDecoder
         }
     }
 
-    private static void RgbToHsl(double r, double g, double b, out double h, out double s, out double l)
+    internal static void RgbToHsl(double r, double g, double b, out double h, out double s, out double l)
     {
         var max = Math.Max(r, Math.Max(g, b));
         var min = Math.Min(r, Math.Min(g, b));
@@ -174,7 +174,7 @@ public sealed class ArtworkDecoder
         h /= 6;
     }
 
-    private static void HslToRgb(double h, double s, double l, out double r, out double g, out double b)
+    internal static void HslToRgb(double h, double s, double l, out double r, out double g, out double b)
     {
         if (s == 0)
         {

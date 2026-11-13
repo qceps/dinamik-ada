@@ -8,6 +8,32 @@ public enum IdleBehavior
     Hide,
 }
 
+/// <summary>Söz yazı tipi seçenekleri (yalnızca Windows ile gelen yazı tipleri).</summary>
+public enum LyricsFontChoice
+{
+    /// <summary>Inter Display, kalın (uygulamaya gömülü; iPhone kalın yazısına en yakın açık lisanslı yazı tipi).</summary>
+    InterBold,
+    /// <summary>Segoe UI Variable Display, kalın.</summary>
+    SegoeVariableBold,
+    /// <summary>Segoe UI, çok kalın (Black).</summary>
+    SegoeBlack,
+    /// <summary>Bahnschrift, yarı kalın (dar, modern).</summary>
+    Bahnschrift,
+    /// <summary>Franklin Gothic (orta).</summary>
+    FranklinGothic,
+}
+
+/// <summary>Adanın renk teması.</summary>
+public enum IslandTheme
+{
+    /// <summary>Siyah ada; şarkı değişimi / geniş görünümde kapak renginden hafif ışıma, çubuklar kapak renginde.</summary>
+    BlackAccent,
+    /// <summary>Tamamen siyah: ışıma yok, çubuklar beyaz.</summary>
+    PureBlack,
+    /// <summary>Arka plan çalan şarkının kapak renginden koyu bir tona boyanır.</summary>
+    SongColor,
+}
+
 public enum GameModeSetting
 {
     Off,
@@ -38,7 +64,10 @@ public sealed class AppSettings
 {
     public const double DefaultTopMargin = 8;
 
-    public int SchemaVersion { get; set; } = 1;
+    public int SchemaVersion { get; set; } = CurrentSchemaVersion;
+
+    /// <summary>2: söz yazı tipi varsayılanı Inter oldu.</summary>
+    public const int CurrentSchemaVersion = 2;
 
     public bool StartWithWindows { get; set; }
 
@@ -68,6 +97,19 @@ public sealed class AppSettings
 
     public GameModeSetting GameMode { get; set; } = GameModeSetting.AutoFullscreen;
 
+    /// <summary>Zamanlanmış şarkı sözlerini (LRCLIB) getir ve geniş adada göster.</summary>
+    public bool LyricsEnabled { get; set; } = true;
+
+    /// <summary>Küçük adada çalan söz satırını; söz yoksa / duraklatılınca şarkı adı ve sanatçıyı göster.</summary>
+    public bool LyricsInCompact { get; set; } = true;
+
+    public LyricsFontChoice LyricsFont { get; set; } = LyricsFontChoice.InterBold;
+
+    /// <summary>Sistem sesi değişince ve oynat/duraklat olunca adada kısa gösterge (medya tuşları).</summary>
+    public bool ShowMediaHud { get; set; } = true;
+
+    public IslandTheme Theme { get; set; } = IslandTheme.BlackAccent;
+
     public HotkeyGesture ToggleExpandHotkey { get; set; } = new(HotkeyModifiers.Control | HotkeyModifiers.Shift, 0x78); // F9
 
     public HotkeyGesture ToggleVisibilityHotkey { get; set; } = new(HotkeyModifiers.Control | HotkeyModifiers.Shift, 0x79); // F10
@@ -79,6 +121,17 @@ public sealed class AppSettings
     /// <summary>Elle düzenlenmiş veya bozuk değerleri güvenli aralığa çeker.</summary>
     public void Normalize()
     {
+        if (SchemaVersion < 2)
+        {
+            // Eski sürümün varsayılanı (Segoe) yeni varsayılana (Inter) taşınır; bilerek seçilmiş diğer yazı tipleri korunur.
+            if (LyricsFont == LyricsFontChoice.SegoeVariableBold)
+            {
+                LyricsFont = LyricsFontChoice.InterBold;
+            }
+
+            SchemaVersion = CurrentSchemaVersion;
+        }
+
         HorizontalOffset = Finite(HorizontalOffset, 0, -4000, 4000);
         TopMargin = Finite(TopMargin, DefaultTopMargin, 0, 200);
         Scale = Finite(Scale, 1.0, 0.8, 1.4);
@@ -87,6 +140,16 @@ public sealed class AppSettings
         if (!Enum.IsDefined(IdleBehavior))
         {
             IdleBehavior = IdleBehavior.ShowIdle;
+        }
+
+        if (!Enum.IsDefined(LyricsFont))
+        {
+            LyricsFont = LyricsFontChoice.InterBold;
+        }
+
+        if (!Enum.IsDefined(Theme))
+        {
+            Theme = IslandTheme.BlackAccent;
         }
 
         if (!Enum.IsDefined(GameMode))

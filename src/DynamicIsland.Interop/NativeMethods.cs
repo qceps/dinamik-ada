@@ -3,6 +3,13 @@ using System.Runtime.InteropServices;
 namespace DynamicIsland.Interop;
 
 [StructLayout(LayoutKind.Sequential)]
+internal struct CursorPoint
+{
+    public int X;
+    public int Y;
+}
+
+[StructLayout(LayoutKind.Sequential)]
 internal struct RECT
 {
     public int Left;
@@ -56,6 +63,10 @@ internal static partial class NativeMethods
     internal delegate bool MonitorEnumProc(nint hMonitor, nint hdc, ref RECT rect, nint data);
 
     internal delegate void WinEventProc(nint hWinEventHook, uint eventType, nint hwnd, int idObject, int idChild, uint idEventThread, uint dwmsEventTime);
+
+    [LibraryImport("user32.dll", EntryPoint = "GetCursorPos")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool GetCursorPos(out CursorPoint point);
 
     [LibraryImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
     internal static partial nint GetWindowLongPtr(nint hWnd, int nIndex);

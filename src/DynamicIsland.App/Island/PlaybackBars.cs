@@ -16,7 +16,7 @@ public sealed class PlaybackBars : Border
     private static readonly double[] Minimums = [0.32, 0.24, 0.38, 0.28];
     private static readonly double[] StaticHeights = [0.55, 0.9, 0.7, 0.45];
     private const double PausedHeight = 0.24;
-    private const int FrameRate = 24; // dekoratif dalga için yeterli; katmanlı pencere her karede yeniden çizilir
+    private const int FrameRate = 24; // dekoratif dalga için yeterli; 15 fps ile ölçülebilir fark çıkmadı
 
     private readonly ScaleTransform[] _scales = new ScaleTransform[4];
     private readonly Rectangle[] _bars = new Rectangle[4];

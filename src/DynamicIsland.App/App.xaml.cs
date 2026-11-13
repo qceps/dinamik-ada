@@ -19,6 +19,27 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        // Geliştirici aracı: durumları PNG'ye döküp çık (tek kopya kilidine ve Spotify'a dokunmaz).
+        var renderIndex = Array.FindIndex(e.Args, a => a.Equals("--render", StringComparison.OrdinalIgnoreCase));
+        if (renderIndex >= 0 && renderIndex + 1 < e.Args.Length)
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            Dispatcher.BeginInvoke(async () =>
+            {
+                try
+                {
+                    await Diagnostics.StateRenderer.RunAsync(e.Args[renderIndex + 1]);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("Görüntü dökümü başarısız", ex);
+                }
+
+                Shutdown();
+            });
+            return;
+        }
+
         // Tek kopya: ikinci açılış mevcut kopyanın ayar penceresini öne getirir ve kapanır.
         _mutex = new Mutex(initiallyOwned: true, MutexName, out var createdNew);
         if (!createdNew)

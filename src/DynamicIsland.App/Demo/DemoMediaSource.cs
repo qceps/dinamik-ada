@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using DynamicIsland.Core.Lyrics;
 using DynamicIsland.Core.Media;
 
 namespace DynamicIsland.App.Demo;
@@ -90,6 +91,46 @@ public sealed class DemoMediaSource : IMediaSource
     }
 
     public void RequestResync() => Publish();
+
+    /// <summary>Teşhis/görüntü dökümü: belirli parçayı, durumu ve konumu seç.</summary>
+    internal void Select(int index, bool playing, double progress)
+    {
+        lock (_gate)
+        {
+            _index = ((index % Tracks.Length) + Tracks.Length) % Tracks.Length;
+            _playing = playing;
+            _position = TimeSpan.FromSeconds(Tracks[_index].Duration.TotalSeconds * Math.Clamp(progress, 0, 1));
+            _positionAt = DateTimeOffset.UtcNow;
+        }
+
+        Publish();
+    }
+
+    /// <summary>Demo parçalar için uydurma, zamanlanmış sözler (ağa hiç gidilmez). Kapaksız parçada söz yok.</summary>
+    internal static TrackLyrics? DemoLyrics(TrackInfo track)
+    {
+        string[] lines = track.Title switch
+        {
+            "Gece Yürüyüşü" => ["Sokak lambaları tek tek yanarken", "", "Adımlarım şehrin ritmine karışır", "Kimse bilmez nereye gittiğimi", "Ben de bilmem, ama yürürüm yine", "Gece uzun, yol daha da uzun"],
+            "Sabah Kahvesi" => ["Pencereden süzülen ilk ışık", "Fincanda dönen küçük bir girdap", "Bugün de güzel olacak belki"],
+            "Kapaksız Parça" => [],
+            _ => ["Bu satır, küçük adada sığmayacak kadar uzun yazılmış ve üç noktayla kesilmesi gereken bir söz satırıdır", "Kısa satır", "", "Ve bir tane daha, geniş görünümde iki satıra kaydırılması gereken oldukça uzun bir söz dizesi"],
+        };
+
+        if (lines.Length == 0)
+        {
+            return null;
+        }
+
+        // Her satır 7 sn; parçanın tamamını dolduracak şekilde döngüyle tekrarla.
+        var result = new List<LyricLine>();
+        for (var t = 3; t < 400; t += 7)
+        {
+            result.Add(new LyricLine(TimeSpan.FromSeconds(t), lines[result.Count % lines.Length]));
+        }
+
+        return new TrackLyrics(result);
+    }
 
     private void Advance(int delta)
     {

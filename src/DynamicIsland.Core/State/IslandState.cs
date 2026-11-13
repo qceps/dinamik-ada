@@ -10,6 +10,8 @@ public enum IslandVisual
     Compact,
     Peek,
     Expanded,
+    /// <summary>Kısa süreli gösterge: ses seviyesi veya oynat/duraklat (medya tuşları).</summary>
+    Hud,
 }
 
 public readonly record struct IslandInputs(
@@ -18,7 +20,8 @@ public readonly record struct IslandInputs(
     bool HasTrack,
     IdleBehavior IdleBehavior,
     bool ExpandRequested,
-    bool PeekActive);
+    bool PeekActive,
+    bool HudActive = false);
 
 /// <summary>Adanın görsel durumunu tek bir yerde, saf fonksiyon olarak belirler (birim test edilir).</summary>
 public static class IslandStateResolver
@@ -28,6 +31,12 @@ public static class IslandStateResolver
         if (inputs.UserHidden)
         {
             return IslandVisual.Hidden;
+        }
+
+        // Kullanıcı adayı açmışsa gösterge onu bölmesin; aksi hâlde (Spotify kapalıyken bile) kısa süre görünür.
+        if (inputs.HudActive && !(inputs.HasTrack && inputs.ExpandRequested))
+        {
+            return IslandVisual.Hud;
         }
 
         if (!inputs.HasTrack)

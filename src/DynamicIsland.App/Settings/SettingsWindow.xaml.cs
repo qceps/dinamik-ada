@@ -56,6 +56,14 @@ public partial class SettingsWindow : Window
         StartWithWindowsBox.Unchecked += startupChanged;
         HoverBox.Checked += (_, _) => Update(s => s.HoverToExpand = true);
         HoverBox.Unchecked += (_, _) => Update(s => s.HoverToExpand = false);
+        LyricsBox.Checked += (_, _) => Update(s => s.LyricsEnabled = true);
+        LyricsBox.Unchecked += (_, _) => Update(s => s.LyricsEnabled = false);
+        LyricsFontBox.SelectionChanged += (_, _) => Update(s => s.LyricsFont = (LyricsFontChoice)Math.Max(0, LyricsFontBox.SelectedIndex));
+        ThemeBox.SelectionChanged += (_, _) => Update(s => s.Theme = (IslandTheme)Math.Max(0, ThemeBox.SelectedIndex));
+        MediaHudBox.Checked += (_, _) => Update(s => s.ShowMediaHud = true);
+        MediaHudBox.Unchecked += (_, _) => Update(s => s.ShowMediaHud = false);
+        LyricsCompactBox.Checked += (_, _) => Update(s => s.LyricsInCompact = true);
+        LyricsCompactBox.Unchecked += (_, _) => Update(s => s.LyricsInCompact = false);
         IdleBox.SelectionChanged += (_, _) => Update(s => s.IdleBehavior = IdleBox.SelectedIndex == 1 ? IdleBehavior.Hide : IdleBehavior.ShowIdle);
         MonitorBox.SelectionChanged += (_, _) =>
         {
@@ -177,6 +185,11 @@ public partial class SettingsWindow : Window
         {
             StartWithWindowsBox.IsChecked = s.StartWithWindows;
             HoverBox.IsChecked = s.HoverToExpand;
+            LyricsBox.IsChecked = s.LyricsEnabled;
+            LyricsCompactBox.IsChecked = s.LyricsInCompact;
+            LyricsFontBox.SelectedIndex = (int)s.LyricsFont;
+            MediaHudBox.IsChecked = s.ShowMediaHud;
+            ThemeBox.SelectedIndex = (int)s.Theme;
             IdleBox.SelectedIndex = s.IdleBehavior == IdleBehavior.Hide ? 1 : 0;
             LoadMonitors(s.MonitorDeviceName);
             UpdateOffsetRange();
@@ -201,7 +214,8 @@ public partial class SettingsWindow : Window
             StatusText.Text = _isDemo
                 ? "DEMO MODU: sahte parçalar gösteriliyor, Spotify'a bağlanılmıyor."
                 : "Spotify masaüstü uygulamasındaki çalan parça Windows medya oturumundan okunur.";
-            AboutText.Text = $"Sürüm {typeof(SettingsWindow).Assembly.GetName().Version?.ToString(3)} · Ayarlar: {_settings.FilePath}";
+            AboutText.Text = $"Sürüm {typeof(SettingsWindow).Assembly.GetName().Version?.ToString(3)} · Ayarlar: {_settings.FilePath}"
+                + "\nYazı tipi: Inter (© The Inter Project Authors, SIL Open Font License 1.1)";
         }
         finally
         {

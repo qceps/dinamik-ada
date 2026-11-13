@@ -5,6 +5,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using DynamicIsland.Core.Media;
+using DynamicIsland.Core.Settings;
 using DynamicIsland.Core.State;
 using DynamicIsland.Interop;
 
@@ -14,19 +15,27 @@ namespace DynamicIsland.App.Island;
 /// Adanın görünümü. Sabit boyutlu, şeffaf, katmanlı (layered) bir pencere; yalnızca içteki kapsül
 /// boyut değiştirir. Saydam (alfa = 0) pikseller Windows tarafından tıklamaya kapalı sayılır, böylece
 /// görünmeyen alanlar fare girişini engellemez. Pencere asla etkinleşmez (WS_EX_NOACTIVATE).
+/// Sözler: <c>IslandWindow.Lyrics.cs</c>; ses ve göstergeler: <c>IslandWindow.Media.cs</c>.
 /// </summary>
 public partial class IslandWindow : Window
 {
     public const double BaseWidth = 432;
-    public const double BaseHeight = 208;
-    public const double MaxIslandWidth = 376;
-    public const double MaxIslandHeight = 176;
+    public const double BaseHeight = 284;
+    public const double MaxIslandWidth = 340;
+    public const double MaxIslandHeight = 248;
 
     private static readonly Size IdleSize = new(150, 30);
     private static readonly Size CompactSize = new(172, 34);
-    private static readonly Size PeekSize = new(330, 54);
-    private static readonly Size ExpandedSize = new(376, 176);
-    private static readonly Size ExpandedNoTimelineSize = new(376, 154);
+    private static readonly Size CompactTextSize = new(250, 34);
+    private static readonly Size PeekSize = new(310, 56);
+    private const double ExpandedWidth = 340;
+
+    // Geniş görünüm yerleşimi (DIP): başlık bölümünün altı, söz bloğu, ilerleme satırı, kontroller.
+    private const double HeaderBottom = 92;
+    private const double LyricsTop = 84;
+    private const double LyricsHeight = 74;
+    private const double ProgressToControls = 22;
+    private const double ControlsToBottom = 60;
 
     private readonly DispatcherTimer _progressTimer;
     private nint _hwnd;
@@ -38,9 +47,16 @@ public partial class IslandWindow : Window
     private bool _seeking;
     private int _hideGeneration;
 
+    private bool _firstShowLogged;
+    private bool _compactTextEnabled = true;
+    private bool _layoutHasLyrics;
+    private bool _layoutHasTimeline;
+    private bool _layoutCompactText;
+
     public IslandWindow()
     {
         InitializeComponent();
+        CreateShadowLayers();
         Island.SizeChanged += (_, _) => UpdateCorners();
         Island.MouseEnter += (_, _) => HoverChanged?.Invoke(true);
         Island.MouseLeave += (_, _) => HoverChanged?.Invoke(false);
@@ -59,7 +75,12 @@ public partial class IslandWindow : Window
         _progressTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(500) };
         _progressTimer.Tick += (_, _) => UpdateProgress();
 
+        _lyricTimer = new DispatcherTimer(DispatcherPriority.Normal);
+        _lyricTimer.Tick += (_, _) => UpdateLyrics();
+
+        InitializeMedia();
         ApplyLayerState(IslandVisual.Hidden, animate: false);
+        LayoutExpanded();
         UpdateCorners();
     }
 
@@ -75,6 +96,25 @@ public partial class IslandWindow : Window
     public nint Handle => _hwnd;
 
     public IslandVisual Visual => _visual;
+
+    /// <summary>Teşhis/görüntü dökümü için kök öğe.</summary>
+    internal FrameworkElement RenderRoot => ScaleRoot;
+
+    /// <summary>Küçük ada çalan söz satırını / şarkı adı ve sanatçıyı göstersin mi?</summary>
+    public bool CompactTextEnabled
+    {
+        get => _compactTextEnabled;
+        set
+        {
+            if (_compactTextEnabled != value)
+            {
+                _compactTextEnabled = value;
+                OnContentLayoutChanged();
+            }
+        }
+    }
+
+    private bool CompactShowsText => _snapshot.HasTrack && _compactTextEnabled;
 
     /// <summary>Pencere tutamacını gösterilmeden oluşturur ve katman stillerini uygular.</summary>
     public void EnsureCreated()
@@ -116,14 +156,20 @@ public partial class IslandWindow : Window
 
         // Ada + gölge plakası üst üste biner; birleşik opaklık istenen değere eşit olsun.
         var a = 1 - Math.Sqrt(1 - Math.Clamp(backgroundOpacity, 0, 1));
-        var brush = new SolidColorBrush(Color.FromArgb((byte)Math.Round(a * 255), 0, 0, 0));
-        brush.Freeze();
-        Island.Background = brush;
+        _backgroundAlpha = (byte)Math.Round(a * 255);
+        ApplyTheme(animate: false);
         ShadowPlate.Opacity = a;
 
-        CompactBars.AnimationsEnabled = PeekBars.AnimationsEnabled = ExpandedBars.AnimationsEnabled = animationsEnabled;
+        foreach (var bars in AllBars)
+        {
+            bars.AnimationsEnabled = animationsEnabled;
+        }
     }
 
+    private PlaybackBars[] AllBars => [CompactBars, CompactLyricsBars, PeekBars, ExpandedBars];
+
+    // Not: pencere yüksekliğini adaya göre küçültmek denendi; ölçümde CPU'yu düşürmek yerine artırdı
+    // (yeniden boyutlanan katmanlı yüzey her seferinde yeniden ayrılıyor). Pencere sabit boyutta kalır.
     public void Place(PixelRect bounds)
     {
         if (_hwnd != 0)
@@ -148,6 +194,29 @@ public partial class IslandWindow : Window
         }
     }
 
+    /// <summary>
+    /// İmleç şu an görünen kapsülün üzerinde mi? WPF'nin MouseLeave olayı katmanlı pencerelerde
+    /// hızlı çıkışlarda gecikebildiği için daralma kararı bununla da doğrulanır.
+    /// </summary>
+    public bool IsCursorOverIsland(double toleranceDip = 1)
+    {
+        if (!_shown || _hwnd == 0 || !OverlayWindow.TryGetCursorPos(out var x, out var y))
+        {
+            return false;
+        }
+
+        try
+        {
+            var p = Island.PointFromScreen(new Point(x, y));
+            return p.X >= -toleranceDip && p.Y >= -toleranceDip
+                && p.X <= Island.ActualWidth + toleranceDip && p.Y <= Island.ActualHeight + toleranceDip;
+        }
+        catch (InvalidOperationException)
+        {
+            return false; // Görsel ağaç henüz bir sunum kaynağına bağlı değil.
+        }
+    }
+
     public void SetInteractionIndicator(bool visible) =>
         Animate(InteractionRing, OpacityProperty, visible ? 1 : 0, 180, null);
 
@@ -155,15 +224,14 @@ public partial class IslandWindow : Window
 
     public void SetSnapshot(MediaSnapshot snapshot)
     {
-        var previous = _snapshot;
+        var previousKey = _snapshot.Track?.Key;
         _snapshot = snapshot;
         var track = snapshot.Track;
 
         if (track is not null)
         {
             PeekTitle.Text = ExpandedTitle.Text = track.Title;
-            var artist = string.IsNullOrWhiteSpace(track.Artist) ? "Bilinmeyen sanatçı" : track.Artist;
-            PeekArtist.Text = ExpandedArtist.Text = artist;
+            PeekArtist.Text = ExpandedArtist.Text = ArtistText(track);
             ExpandedAlbum.Text = track.Album;
             ExpandedAlbum.Visibility = string.IsNullOrWhiteSpace(track.Album) ? Visibility.Collapsed : Visibility.Visible;
         }
@@ -178,12 +246,15 @@ public partial class IslandWindow : Window
         NextButton.IsEnabled = caps.CanNext;
         PreviousButton.IsEnabled = caps.CanPrevious;
 
-        CompactBars.IsPlaying = PeekBars.IsPlaying = ExpandedBars.IsPlaying = playing;
+        foreach (var bars in AllBars)
+        {
+            bars.IsPlaying = playing;
+        }
+
         DemoBadge.Visibility = snapshot.IsDemo ? Visibility.Visible : Visibility.Collapsed;
 
         var hasTimeline = snapshot.Timeline is not null;
         ProgressRow.Visibility = hasTimeline ? Visibility.Visible : Visibility.Collapsed;
-        ControlsRow.Margin = new Thickness(0, hasTimeline ? 120 : 96, 0, 0);
 
         // İleri sarma yalnızca oturum destekliyorsa etkileşimli; aksi hâlde salt gösterge.
         _canSeek = caps.CanSeek && hasTimeline;
@@ -197,24 +268,57 @@ public partial class IslandWindow : Window
         UpdateProgress();
         UpdateProgressTimer();
 
-        var hadTimeline = previous.Timeline is not null;
-        if (_visual == IslandVisual.Expanded && hadTimeline != hasTimeline)
+        if (previousKey != track?.Key)
         {
-            AnimateIslandSize(SizeFor(IslandVisual.Expanded), grow: hasTimeline);
+            _compactContentKey = null; // yeni parça: küçük adadaki bilgi yazısı da yenilensin
+        }
+
+        if (LayoutNeedsRefresh())
+        {
+            OnContentLayoutChanged();
+        }
+        else
+        {
+            UpdateLyrics();
         }
     }
+
+    private static string ArtistText(TrackInfo track) =>
+        string.IsNullOrWhiteSpace(track.Artist) ? "Bilinmeyen sanatçı" : track.Artist;
 
     public void SetArtwork(ImageSource? image, Color accent, bool animate)
     {
         var anim = animate && _animations && _shown;
         CompactArt.SetImage(image, anim);
+        CompactLyricsArt.SetImage(image, anim);
         PeekArt.SetImage(image, anim);
         ExpandedArt.SetImage(image, anim);
-        var brush = new SolidColorBrush(accent);
-        brush.Freeze();
-        CompactBars.SetBarBrush(brush);
-        PeekBars.SetBarBrush(brush);
-        ExpandedBars.SetBarBrush(brush);
+        HudArt.SetImage(image, anim);
+        _accent = accent;
+        _hasArtwork = image is not null;
+        ApplyTheme(anim);
+
+        // Işıma: kapak varsa onun rengi, yoksa çok soluk nötr.
+        var glow = image is null ? Color.FromRgb(0x9A, 0x9A, 0xA0) : accent;
+        var alpha = (byte)(image is null ? 0x22 : 0x4A);
+        SetGlowColor(Color.FromArgb(alpha, glow.R, glow.G, glow.B), anim);
+    }
+
+    private void SetGlowColor(Color color, bool animate)
+    {
+        var transparent = Color.FromArgb(0, color.R, color.G, color.B);
+        if (!animate)
+        {
+            GlowStop0.BeginAnimation(GradientStop.ColorProperty, null);
+            GlowStop1.BeginAnimation(GradientStop.ColorProperty, null);
+            GlowStop0.Color = color;
+            GlowStop1.Color = transparent;
+            return;
+        }
+
+        var duration = TimeSpan.FromMilliseconds(420);
+        GlowStop0.BeginAnimation(GradientStop.ColorProperty, new ColorAnimation(color, duration), HandoffBehavior.SnapshotAndReplace);
+        GlowStop1.BeginAnimation(GradientStop.ColorProperty, new ColorAnimation(transparent, duration), HandoffBehavior.SnapshotAndReplace);
     }
 
     public void SetVisual(IslandVisual visual)
@@ -226,6 +330,7 @@ public partial class IslandWindow : Window
 
         var previous = _visual;
         _visual = visual;
+        OnVisualChangedForMedia();
 
         if (visual == IslandVisual.Hidden)
         {
@@ -248,29 +353,42 @@ public partial class IslandWindow : Window
                 Stage.Opacity = 0;
                 Show(); // ShowActivated=False → SW_SHOWNA: etkinleştirmez.
                 _shown = true;
+                if (!_firstShowLogged)
+                {
+                    _firstShowLogged = true;
+                    var sinceStart = DateTime.Now - System.Diagnostics.Process.GetCurrentProcess().StartTime;
+                    DynamicIsland.Core.Diagnostics.Log.Info($"Ada ilk kez gösterildi (işlem başlangıcından {sinceStart.TotalMilliseconds:0} ms sonra)");
+                }
+
                 AssertTopmost();
             }
 
             Animate(Stage, OpacityProperty, 1, 200, null);
         }
 
-        var grow = target.Width * target.Height >= Island.ActualWidth * Island.ActualHeight;
-        AnimateIslandSize(target, grow);
+        AnimateIslandSize(target);
         ApplyLayerState(visual, _animations);
         UpdateProgressTimer();
+        if (visual == IslandVisual.Expanded)
+        {
+            _expandedIndex = int.MinValue; // satır konumları görünürken yeniden ölçülsün
+        }
+
+        UpdateLyrics(animate: false);
     }
 
     private void HideIsland()
     {
         ApplyLayerState(IslandVisual.Hidden, _animations);
         _progressTimer.Stop();
+        _lyricTimer.Stop();
         if (!_shown)
         {
             return;
         }
 
         var generation = ++_hideGeneration;
-        AnimateIslandSize(new Size(Math.Min(Island.ActualWidth, 110), Math.Max(24, Island.ActualHeight * 0.8)), grow: false);
+        AnimateIslandSize(new Size(Math.Min(Island.ActualWidth, 110), Math.Max(24, Island.ActualHeight * 0.8)));
         Animate(Stage, OpacityProperty, 0, 180, () =>
         {
             if (generation == _hideGeneration && _visual == IslandVisual.Hidden)
@@ -284,13 +402,54 @@ public partial class IslandWindow : Window
     private Size SizeFor(IslandVisual visual) => visual switch
     {
         IslandVisual.Idle => IdleSize,
-        IslandVisual.Compact => CompactSize,
+        IslandVisual.Compact => CompactShowsText ? CompactTextSize : CompactSize,
         IslandVisual.Peek => PeekSize,
-        IslandVisual.Expanded => _snapshot.Timeline is null ? ExpandedNoTimelineSize : ExpandedSize,
+        IslandVisual.Expanded => new Size(ExpandedWidth, LayoutExpanded()),
+        IslandVisual.Hud => HudSize,
         _ => CompactSize,
     };
 
-    private void AnimateIslandSize(Size target, bool grow)
+    private bool LayoutNeedsRefresh() =>
+        _layoutHasLyrics != HasLyrics || _layoutHasTimeline != (_snapshot.Timeline is not null) || _layoutCompactText != CompactShowsText;
+
+    /// <summary>Geniş görünümün dikey yerleşimini içeriğe göre kurar ve toplam yüksekliği döndürür.</summary>
+    private double LayoutExpanded()
+    {
+        var hasLyrics = HasLyrics;
+        var hasTimeline = _snapshot.Timeline is not null;
+        _layoutHasLyrics = hasLyrics;
+        _layoutHasTimeline = hasTimeline;
+
+        LyricsBlock.Visibility = hasLyrics ? Visibility.Visible : Visibility.Collapsed;
+        LyricsBlock.Margin = new Thickness(18, LyricsTop, 18, 0);
+        LyricsBlock.Height = LyricsHeight;
+        var y = hasLyrics ? LyricsTop + LyricsHeight + 6 : HeaderBottom;
+        ProgressRow.Margin = new Thickness(18, y, 18, 0);
+        var controls = hasTimeline ? y + ProgressToControls : y;
+        ControlsRow.Margin = new Thickness(0, controls, 0, 0);
+        return controls + ControlsToBottom;
+    }
+
+    /// <summary>Söz varlığı / zaman çizelgesi / küçük ada yazısı değişti: katmanları ve boyutu yeniden uygula.</summary>
+    private void OnContentLayoutChanged()
+    {
+        if (_visual is IslandVisual.Compact or IslandVisual.Expanded)
+        {
+            AnimateIslandSize(SizeFor(_visual));
+            ApplyLayerState(_visual, _animations && _shown);
+        }
+        else
+        {
+            LayoutExpanded();
+            _layoutCompactText = CompactShowsText;
+        }
+
+        _compactIndex = _expandedIndex = int.MinValue;
+        _compactContentKey = null;
+        UpdateLyrics(animate: false);
+    }
+
+    private void AnimateIslandSize(Size target)
     {
         if (!_animations)
         {
@@ -301,9 +460,12 @@ public partial class IslandWindow : Window
             return;
         }
 
+        var grow = target.Width * target.Height >= Island.ActualWidth * Island.ActualHeight;
+
         // SnapshotAndReplace: hızlı art arda geçişlerde animasyonlar birikmez; mevcut değerden yeni hedefe akar.
-        var duration = TimeSpan.FromMilliseconds(grow ? 480 : 400);
-        var ease = new SpringEase { Damping = grow ? 0.84 : 0.95, Stiffness = grow ? 7.2 : 8.0 };
+        // Daralma, büyümeden belirgin şekilde hızlı: fare çekilince ada beklemeden toparlansın.
+        var duration = TimeSpan.FromMilliseconds(grow ? 400 : 280);
+        var ease = new SpringEase { Damping = grow ? 0.82 : 0.97, Stiffness = grow ? 7.6 : 9.5 };
         var w = new DoubleAnimation(target.Width, duration) { EasingFunction = ease };
         var h = new DoubleAnimation(target.Height, duration) { EasingFunction = ease };
         Island.BeginAnimation(WidthProperty, w, HandoffBehavior.SnapshotAndReplace);
@@ -312,13 +474,30 @@ public partial class IslandWindow : Window
 
     private void ApplyLayerState(IslandVisual visual, bool animate)
     {
+        _layoutCompactText = CompactShowsText;
+        var compactText = visual == IslandVisual.Compact && _layoutCompactText;
         SetLayer(IdleLayer, visual == IslandVisual.Idle, animate);
-        SetLayer(CompactLayer, visual == IslandVisual.Compact, animate);
+        SetLayer(CompactLayer, visual == IslandVisual.Compact && !compactText, animate);
+        SetLayer(CompactLyricsLayer, compactText, animate);
         SetLayer(PeekLayer, visual == IslandVisual.Peek, animate);
         SetLayer(ExpandedLayer, visual == IslandVisual.Expanded, animate);
-        CompactBars.LayerActive = visual == IslandVisual.Compact;
+        SetLayer(HudVolumeLayer, visual == IslandVisual.Hud && _hudMode == HudMode.Volume, animate);
+        SetLayer(HudPlaybackLayer, visual == IslandVisual.Hud && _hudMode == HudMode.Playback, animate);
+        CompactBars.LayerActive = visual == IslandVisual.Compact && !compactText;
+        CompactLyricsBars.LayerActive = compactText;
         PeekBars.LayerActive = visual == IslandVisual.Peek;
         ExpandedBars.LayerActive = visual == IslandVisual.Expanded;
+
+        var glow = _theme != IslandTheme.PureBlack && visual is IslandVisual.Peek or IslandVisual.Expanded ? 1 : 0;
+        if (animate)
+        {
+            Animate(Glow, OpacityProperty, glow, glow > 0 ? 360 : 160, null);
+        }
+        else
+        {
+            Glow.BeginAnimation(OpacityProperty, null);
+            Glow.Opacity = glow;
+        }
     }
 
     private static void SetLayer(FrameworkElement layer, bool active, bool animate)
@@ -332,8 +511,8 @@ public partial class IslandWindow : Window
         }
 
         var animation = active
-            ? new DoubleAnimation(1, TimeSpan.FromMilliseconds(220)) { BeginTime = TimeSpan.FromMilliseconds(110), EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut } }
-            : new DoubleAnimation(0, TimeSpan.FromMilliseconds(110)) { EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn } };
+            ? new DoubleAnimation(1, TimeSpan.FromMilliseconds(180)) { BeginTime = TimeSpan.FromMilliseconds(60), EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut } }
+            : new DoubleAnimation(0, TimeSpan.FromMilliseconds(80)) { EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn } };
         layer.BeginAnimation(OpacityProperty, animation, HandoffBehavior.SnapshotAndReplace);
     }
 
@@ -363,12 +542,15 @@ public partial class IslandWindow : Window
         var r = Math.Min(h / 2, 30);
         var radius = new CornerRadius(r);
         Island.CornerRadius = radius;
-        ShadowPlate.CornerRadius = radius;
+        UpdateShadowLayers(w, h, r);
+        Outline.CornerRadius = radius;
         InteractionRing.CornerRadius = radius;
         var clip = new RectangleGeometry(new Rect(0, 0, w, h), r, r);
         clip.Freeze();
         Island.Clip = clip;
     }
+
+    // ---- İlerleme ----
 
     private void UpdateProgressTimer()
     {
@@ -400,7 +582,7 @@ public partial class IslandWindow : Window
 
     private void SetProgressVisual(double fraction)
     {
-        var width = SeekArea.ActualWidth > 0 ? SeekArea.ActualWidth : MaxIslandWidth - 36 - 80 - 8;
+        var width = SeekArea.ActualWidth > 0 ? SeekArea.ActualWidth : MaxIslandWidth - 36 - 76 - 8;
         TrackFill.Width = Math.Max(0, width * fraction);
         SeekThumbOffset.X = Math.Max(0, width * fraction - SeekThumb.Width / 2);
     }
@@ -456,6 +638,7 @@ public partial class IslandWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         _progressTimer.Stop();
+        _lyricTimer.Stop();
         if (_hwnd != 0)
         {
             HwndSource.FromHwnd(_hwnd)?.RemoveHook(WndProc);

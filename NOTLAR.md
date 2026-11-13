@@ -20,9 +20,37 @@
 | 11 | Çoklu monitör / DPI | ✅ ikinci monitöre (negatif koordinat) taşıma; ❗ farklı DPI yalnızca birim testinde (iki monitör de %100) |
 | 12 | Yeniden açılışta ayar korunması | ✅ UI Automation ile |
 | + | Kısayol çakışması, Windows ile başlat, tek kopya, saydam alanların tıklama geçirmesi | ✅ |
-| + | 34 birim testi | ✅ |
+| + | 74 birim testi (34 + 29 söz: LRC ayrıştırma, satır bulma, önbellek, LRCLIB eşleştirme / hız sınırı / ağ hatası + 6 satır bölme + 4 gösterge durumu + 1 yazı tipi geçişi) | ✅ |
 
-Performans (Release): duraklatılmışken CPU ~%0,03; çalarken (çubuk animasyonu) tüm çekirdeklerin ~%0,4–0,9'u; özel bellek ~100–160 MB (çoğu WPF'nin yerel grafik katmanı; yönetilen yığın ~3 MB). Donanım render, yazılım render'dan daha verimli ölçüldü.
+Performans (Release): duraklatılmışken CPU ~%0,03; çalarken (çubuk animasyonu) tüm çekirdeklerin ~%0,4–0,9'u; özel bellek ~100–160 MB (çoğu WPF'nin yerel grafik katmanı; yönetilen yığın ~3 MB). Donanım render, yazılım render'dan daha verimli ölçüldü. (Sözler eklendikten sonra CPU yeniden ölçülmedi.)
+
+## 13.11.2026 — tasarım, sözler, hızlı daralma
+- **Hızlı daralma:** fare çekilince bekleme 380 → 150 ms, daralma animasyonu 400 → 300 ms. Genişken imleç ayrıca 90 ms aralıkla `GetCursorPos` ile denetlenir (katmanlı pencerede `MouseLeave` kaçarsa da daralır). Gerçek Spotify ile ölçüldü: yavaş çıkışta da imlecin bir anda sıçradığı çıkışta da "hover leave" → daralma başlangıcı ~150 ms; 200 ms sonraki ekran görüntüsünde ada küçük hâldeydi.
+- **Sözler:** `Core/Lyrics` — LRC ayrıştırıcı, `TrackLyrics`, `LyricsService` (LRU 48, ağ hatası 60 sn hatırlanır), `LrclibLyricsProvider` (`/api/get` → sadeleştirilmiş başlıkla `/api/search`; süresi 8 sn'den fazla farklı kayıt reddedilir; 429'da `Retry-After`). Parça değişiminden 450 ms sonra istenir, hızlı geçişte iptal edilir. Satır zamanlayıcısı bir sonraki satırın zamanına kurulur, satırı 250 ms erken gösterir. Küçük ada yalnızca çalarken satırı gösterir (344×34); geniş görünümde çalan satır (en çok 2 satır) + sonraki satır.
+- **Tasarım:** kapak renginden ışıma (şarkı değişimi / geniş), ince kenar çizgisi, Display yazı tipi, sabit genişlikli süre rakamları, kapak gölgesi, yuvarlatılmış duraklat simgesi, basınca küçülen düğmeler. Pencere 432×276 (en yüksek ada 240).
+- **`--render <klasör>`:** durumları ekrana çizmeden PNG'ye döker (tasarım incelemesi için; tek kopya kilidine dokunmaz).
+- Gerçek Spotify ile sözler bulundu (60 satır) ve küçük / geniş adada gösterildi. Söz zamanlamasının şarkıyla uyumu kulakla doğrulanmadı (test sırasında Spotify duraklatılmıştı).
+
+## 13.11.2026 (2) — söz bölme, yazı tipi, akıcı geçiş, ses ve medya tuşları
+- **Söz bölme (`LyricSplitter`):** satır sığmıyorsa önce noktalamadan, olmazsa kelimeleri en geniş parçayı küçültecek şekilde (küçük DP) böler; süre harf sayısına göre paylaştırılır, satırdan sonra uzun ara varsa en fazla `1 + harf/7` sn'ye yayılır. Küçük ada tek satır (≈256 DIP), geniş ada iki satır (≈585 DIP) kapasiteyle ayrı ayrı bölünür.
+- **Küçük ada yazısı:** iki yuvalı çapraz geçiş (eski yukarı kayıp söner 260–360 ms, yeni aşağıdan 560 ms Quintic). Söz yoksa / duraklatılınca / söz arasında "şarkı adı · sanatçı". Küçük ada artık parça varken hep aynı genişlikte (duraklatınca daralmıyor). Kullanıcı "çok geniş" deyince daraltıldı: küçük ada 344 → 280 → 250, şarkı değişimi 340 → 310, ses göstergesi 240 → 216, oynat/duraklat 200 → 180, sonra kullanıcı isteğiyle geniş görünüm de 376 → 340 (ses kaydırıcısı 104 → 82, oynat düğmesi aralıkları 22 → 12).
+- **Geniş ada sözleri:** tüm satırlar alt alta (Canvas içinde — StackPanel 74 px'e yerleştirilince WPF kaydırmadan önce kırpıyordu), çalan satır yaylı kaydırmayla (680 ms) üste gelir, geçmiş satırlar %16, gelecek %34. Saydamlık maskesi `MappingMode=Absolute` (göreli maske uzun listenin sınırlarına yayılıp çalan satırı soluk gösteriyordu).
+- **Söz düğmesi:** geniş görünümün sağ üstünde (çalma göstergesinin altında) sözleri aç/kapat düğmesi; ayarlardaki "Zamanlanmış şarkı sözlerini göster" seçeneğini değiştirir (kalıcı, ayar penceresi de güncellenir). Kapalıyken soluk, açıkken dolu çip. Demo rozeti kapağın köşesine taşındı.
+- **Yazı tipi:** kullanıcı iPhone kalın yazısını istedi. SF Pro'nun lisansı Windows uygulamasına koymaya izin vermediği için en yakın açık lisanslı **Inter Display** (v4.1, Bold + SemiBold, SIL OFL 1.1, lisans metni gömülü) kullanıcı onayıyla indirilip `Assets/Fonts`'a gömüldü; sözler, başlıklar ve gösterge yazısı Inter. Sanatçı/albüm gibi ikincil yazılar Segoe UI Variable Text (gömülü Inter'in normal ağırlığı yok). Ayarlar şema sürümü 2: eski varsayılan (Segoe) Inter'e taşınır, bilerek seçilen diğer yazı tipleri korunur. Seçenekler: Inter, Segoe UI Variable, Segoe UI Black, Bahnschrift, Franklin Gothic.
+- **Spotify sesi:** WASAPI oturumları (`AppVolume`, işlem adı `Spotify`, tüm etkin çıkış aygıtları). Dikkat: `ISimpleAudioVolume` IID'si `87CE5498-68D6-44E5-9215-6DA47EF883D8` (yanlış IID ile tüm oturumlarda E_NOINTERFACE). Sürüklerken istekler tek işçide birleştirilir; genişken 1,2 sn'de bir okunur. Gerçek ortamda: okuma %100, %80'e ayarlayıp geri alma, tekerlekle 2 adım aşağı (çubuk ~%10 kısaldı) / 2 adım yukarı → %100.
+- **Göstergeler:** `SystemVolumeWatcher` (IAudioEndpointVolume bildirimi, varsayılan aygıt değişince yeniden bağlanır) ve aynı parçada Çalıyor↔Duraklatıldı geçişi (300 ms doğrulama). Klavye kancası yok. Gerçek ortamda: ses tuşu aşağı → "%98", yukarı → "%100"; oynat/duraklat göstergeleri doğru yönde göründü (test başında Spotify çalıyordu).
+- Gerçek Spotify'da söz bulunamayan parçada küçük adanın "şarkı adı · sanatçı" gösterdiği doğrulandı. Çalarken gerçek sözlerin parça parça akışı ve geçişlerin akıcılığı gözle değerlendirilmedi; demo görüntüleriyle (`--render`) doğrulandı.
+
+## 14.11.2026 — tema ve performans
+- **Tema (Ayarlar → Tema):** Siyah + kapak rengi (varsayılan), Tam siyah (ışıma yok, çubuklar beyaz), Şarkıya göre renkli (arka plan kapak renginden HSL ile koyu iki tona boyanır: l=0,24 → 0,085; şarkı değişince 650 ms geçiş). Opaklık ayarı her temada geçerli.
+- **Performans ölçümleri** (demo modu, küçük ada + sözler çalarken, 15 sn, işlemin kendi CPU süresi / 12 çekirdek). Makinedeki arka plan yükü yüzünden aynı yapılandırma turdan tura %1,1–1,9 arasında oynadı; küçük farklar güvenilir değil.
+  - Pencere yüksekliğini adaya göre küçültmek (katmanlı yüzey küçülsün diye) denendi: CPU **arttı** (~%0,8 → ~%1,2–1,5) ve bellek büyüdü; geri alındı.
+  - `BitmapCache`: ölçülebilir fayda yok; geri alındı.
+  - Çubuklar 24 → 15 fps: ölçülebilir fark yok; 24 kaldı.
+  - `DropShadowEffect` kapalıyken iki turda da daha düşük CPU ve ~50 MB daha az özel bellek → ada ve kapak gölgesi, üst üste binen yarı saydam katmanlarla (efektsiz) yeniden yapıldı. Son ölçüm: CPU ~%1,0, özel bellek 141–156 MB (gürültü yüzünden kesin kazanç iddia edilemez).
+  - Başlangıç (demo): işlem başlangıcından ada görünene ~1,8 sn; bunun ~1,15 sn'si uygulama kodundan önce (.NET + WPF + tek dosya paketi). Spotify bağlantısı artık tepsi/kısayol hazırlığıyla paralel başlıyor. Günlüğe "Ada ilk kez gösterildi (… ms)" yazılıyor.
+- **Daha çabuk tepki:** fareyle genişleme gecikmesi 120 → 90 ms, büyüme animasyonu 460 → 400 ms, daralma 300 → 280 ms, katman geçişleri 200/90 → 180/80 ms.
+- Birim testleri artık gerçek uygulama günlüğüne değil `%TEMP%\DinamikAda-test-logs`'a yazıyor (bilerek hata üreten testler kullanıcı günlüğünde "Şarkı sözü alınamadı" uyarısı bırakıyordu).
 
 ## Bilinen kısıtlar
 - Exclusive fullscreen oyunlarda normal pencere görünmeyebilir; doğrulanmadı.

@@ -4,6 +4,7 @@ using DynamicIsland.App.Island;
 using DynamicIsland.App.Services;
 using DynamicIsland.App.Settings;
 using DynamicIsland.Core.Diagnostics;
+using DynamicIsland.Core.Lyrics;
 using DynamicIsland.Core.Media;
 using DynamicIsland.Core.Settings;
 
@@ -18,6 +19,7 @@ public sealed class AppHost : IDisposable
     private IslandWindow? _window;
     private IslandController? _controller;
     private GameModeService? _game;
+    private LrclibLyricsProvider? _lrclib;
     private HotkeyService? _hotkeys;
     private TrayIconService? _tray;
     private SettingsWindow? _settingsWindow;
@@ -44,7 +46,10 @@ public sealed class AppHost : IDisposable
             _window.EnsureCreated();
             _game = new GameModeService(() => _window.Handle, _settings.Current.GameMode);
             _media = _demo ? new DemoMediaSource() : new SpotifyMediaSource();
-            _controller = new IslandController(_window, _media, _settings, _game);
+            ILyricsProvider lyricsProvider = _demo ? new DemoLyricsProvider() : (_lrclib = new LrclibLyricsProvider());
+            _controller = new IslandController(_window, _media, _settings, _game, new LyricsService(lyricsProvider));
+            // Spotify bağlantısı (GSMTC ~0,5–1 sn) kısayol ve tepsi hazırlanırken paralel başlasın.
+            var mediaStart = _media.StartAsync();
 
             _hotkeys = new HotkeyService();
             _hotkeys.Pressed += OnHotkey;
@@ -59,7 +64,7 @@ public sealed class AppHost : IDisposable
             _controller.StateChanged += UpdateTray;
 
             _controller.Start();
-            await _media.StartAsync();
+            await mediaStart;
             UpdateTray();
 
             if (openSettings)
@@ -197,6 +202,7 @@ public sealed class AppHost : IDisposable
         }
 
         _hotkeys?.Dispose();
+        _lrclib?.Dispose();
         _game?.Dispose();
         _tray?.Dispose();
         _settings?.Dispose();

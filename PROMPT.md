@@ -28,7 +28,7 @@ Windows 11 için, Spotify masaüstü uygulamasına odaklı, iPhone "Dynamic Isla
 - Günlük (`%LOCALAPPDATA%\DinamikAda\logs\app.log`, 512 KB döner) şarkı/sanatçı/albüm **yazmaz**. `DINAMIKADA_TRACE=1` ile yalnızca durum geçişi izleri.
 
 ## Ada görünümü (App)
-- Sabit boyutlu (432×208 DIP × ölçek), `AllowsTransparency`, çerçevesiz, görev çubuğunda yok, `WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TOPMOST`, `WM_MOUSEACTIVATE → MA_NOACTIVATE`, `ShowActivated=False`. Saydam pikseller tıklamayı alttaki pencereye geçirir.
+- Sabit boyutlu (432×284 DIP × ölçek), `AllowsTransparency`, çerçevesiz, görev çubuğunda yok, `WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TOPMOST`, `WM_MOUSEACTIVATE → MA_NOACTIVATE`, `ShowActivated=False`. Saydam pikseller tıklamayı alttaki pencereye geçirir.
 - İçteki siyah kapsülün yalnızca genişlik/yüksekliği animasyonlu; köşe yarıçapı `min(h/2, 30)`, kırpma geometrisi ve ayrı gölge plakası (DropShadow). Opaklık ayarı plaka+ada için `a = 1-√(1-opaklık)`.
 - Durumlar: Bekleme 150×30 ("Spotify kapalı / Spotify hazır / Müzik yok"), Küçük 172×34 (kapak + çubuklar), Şarkı değişimi 330×54 (kapak, başlık, sanatçı), Geniş 376×176 (66 px kapak, başlık/sanatçı/albüm, süre + ilerleme çubuğu, önceki/oynat-duraklat/sonraki) — zaman çizelgesi yoksa 376×154 ve ilerleme gizli. Uzun metinler `CharacterEllipsis`.
 - Katmanlar sabit boyutlu ve ortalı; geçişte yalnızca opaklık çapraz geçişi. Boyut animasyonu: özel `SpringEase` (sönüm 0,84 büyürken / 0,95 küçülürken, ~%1 aşma), 480/400 ms, `HandoffBehavior.SnapshotAndReplace` (hızlı geçişte birikme yok).
@@ -36,10 +36,26 @@ Windows 11 için, Spotify masaüstü uygulamasına odaklı, iPhone "Dynamic Isla
 - İleri sarma yalnızca `CanSeek` ve zaman çizelgesi varsa etkileşimli. İlerleme zamanlayıcısı (500 ms) yalnızca geniş + çalarken çalışır.
 - Animasyonlar ayardan kapatılabilir; Windows "Animasyon efektleri" kapalıysa otomatik kapanır.
 
+## Şarkı sözleri
+- Core `Lyrics/`: LRC ayrıştırıcı (çoklu damga, `[offset]`, kelime damgaları atılır), `TrackLyrics.IndexAt` (ikili arama), `LyricsService` (LRU 48; "bulunamadı" önbelleğe alınır, ağ hatası 60 sn), `LrclibLyricsProvider`: `/api/get` (ad, sanatçı, albüm, süre) → "- Remastered", "(feat. …)" atılmış başlık + ilk sanatçıyla `/api/search`; süre farkı > 8 sn olan kaydı reddet; 429'da `Retry-After`'a uy; User-Agent'ta uygulama adı/sürümü. Yalnızca senkron sözler.
+- Parça değişiminden 450 ms sonra iste, hızlı geçişte iptal et. Ayarlar: "Zamanlanmış şarkı sözlerini göster" (varsayılan açık) ve "Çalan satırı küçük adada da göster" (varsayılan açık); ayarlarda LRCLIB'e hangi bilgilerin gittiği yazsın. Sözler diske/günlüğe yazılmaz.
+- Geniş görünümün sağ üstünde sözleri aç/kapat düğmesi (ayarla aynı, kalıcı).
+- Uzun satırları "…" ile kesme: `LyricSplitter` ile görünüme sığan parçalara böl (önce noktalama, sonra dengeli kelime grupları), satırın süresini harf sayısına göre paylaştır; küçük ada (tek satır) ve geniş ada (iki satır) için ayrı bölünmüş listeler.
+- Küçük ada parça varken 250×34 (geniş görünüm 340 genişlikte, şarkı değişimi 310×56, ses göstergesi 216×34, oynat/duraklat 180×34): çalarken söz parçası; söz yoksa / duraklatılınca / söz arasında "şarkı adı · sanatçı". İki yuvalı yumuşak çapraz geçiş (eski yukarı kayıp söner, yeni aşağıdan yükselir). Geniş adada tüm satırlar alt alta (Canvas içinde, mutlak eşlemeli saydamlık maskesi), çalan satır yaylı kaydırmayla üste gelir, diğerleri soluk. Söz ve başlık yazı tipi: gömülü Inter Display Bold/SemiBold (SIL OFL; iPhone kalın yazısına en yakın açık lisanslı), ayardan Segoe UI Variable / Black / Bahnschrift / Franklin Gothic. Zamanlayıcı bir sonraki satırın zamanına kurulur, 250 ms erken gösterir. Demo modunda uydurma sözler.
+
+## Tema ve performans
+- Ayarlar → Tema: "Siyah + kapak rengi" (varsayılan), "Tam siyah" (ışıma yok, beyaz çubuklar), "Şarkıya göre renkli" (arka plan kapak renginden koyu iki tonlu geçiş, şarkı değişince yumuşak renk geçişi).
+- Gölgeler `DropShadowEffect` ile değil, yarı saydam katmanlarla (ölçümde daha az CPU/bellek). Pencere sabit boyutlu kalsın (dinamik yeniden boyutlandırma ölçümde CPU'yu artırdı). Spotify bağlantısı tepsi/kısayol hazırlığıyla paralel başlasın. Testler günlüğü geçici klasöre yazsın.
+
+## Ses ve medya tuşları
+- Geniş adada Spotify'ın uygulama sesi (WASAPI oturumları, `ISimpleAudioVolume` IID `87CE5498-68D6-44E5-9215-6DA47EF883D8`): sessize alma düğmesi, kaydırıcı, fare tekerleği ±%5; istekler tek arka plan işçisinde birleştirilir. Oynatma düğmeleri solda, ses sağda (yükseklik artmaz).
+- Kısa göstergeler (`IslandVisual.Hud`, geniş görünümü bölmez, 1,6 sn): sistem sesi değişince (`IAudioEndpointVolume` bildirimi; klavye dinlenmez) ses çubuğu + yüzde; aynı parçada Çalıyor↔Duraklatıldı geçişinde kapak + yazı + simge. Ayardan kapatılabilir.
+- Tasarım: kapak renginden radyal ışıma (şarkı değişimi/geniş), ince kenar çizgisi, Display yazı tipi, sabit genişlikli rakamlar. `--render <klasör>` geliştirici aracı durumları PNG'ye döker.
+
 ## Davranış (IslandController)
 - Saf çözücü: Gizli > (parça yoksa: Bilinmiyor→gizli, ayara göre Bekleme/Gizli) > Geniş (hover/kısayol/etkileşim) > Şarkı değişimi > Küçük.
 - Yeni parça anahtarında "şarkı değişimi" açılır, ayarlı süre (varsayılan 4 sn) sonra küçülür; hızlı geçişte zamanlayıcı yeniden başlar.
-- Hover: 140 ms bekleyip genişle, 380 ms sonra daral. Kısayol ile genişlet/daralt.
+- Hover: 120 ms bekleyip genişle, fare çekilince 150 ms sonra daral (daralma animasyonu 300 ms). Genişken imleci 90 ms'de bir `GetCursorPos` ile de denetle; katmanlı pencerede `MouseLeave` kaçsa bile daralsın. Kısayol ile genişlet/daralt.
 - Oyun modu (Kapalı / Açık / Tam ekran algılanınca — varsayılan): ön plan değişimi WinEvent ile, 0,9 ve 3,5 sn sonra yeniden denetim; tam ekran = `SHQueryUserNotificationState` (D3D/busy) veya ön plan penceresi monitörü kaplıyor. Oyun modunda `WS_EX_TRANSPARENT` (tıklama geçer), hover kapalı. Etkileşim modu kısayolla açılır (ince halka göstergesi), tıklanabilir olur, 8 sn hareketsizlikte kendiliğinden kapanır.
 - Her ön plan değişiminde `SetWindowPos(HWND_TOPMOST, NOACTIVATE)` ile en üstte kalmayı yeniden doğrula.
 - Yerleşim: `PlacementCalculator` — seçili monitör (aygıt adı; çıkarılmışsa birincile düş, ayarı silme), monitör DPI'ı, ortadan kaydırma (ada ekran içinde kalacak şekilde kırpılır), üst boşluk. `WM_DPICHANGED`, `WM_DISPLAYCHANGE`, `DisplaySettingsChanged`, uykudan dönüşte yeniden konumla + medya yeniden eşitle.
@@ -53,7 +69,7 @@ Windows 11 için, Spotify masaüstü uygulamasına odaklı, iPhone "Dynamic Isla
 - İşlenmeyen UI hataları günlüğe yazılır, uygulama kapanmaz.
 
 ## Doğrulama (gerçekten yapılanlar)
-- 34 birim testi (kimlik eşleşmesi, durum çözücü, çoklu monitör/150% DPI/negatif koordinat/kırpma yerleşimi, zaman çizelgesi, LRU, ayar gidiş-dönüş ve bozuk dosya).
+- 74 birim testi (söz ayrıştırma/eşleştirme/bölme ve gösterge durumu dahil; kimlik eşleşmesi, durum çözücü, çoklu monitör/150% DPI/negatif koordinat/kırpma yerleşimi, zaman çizelgesi, LRU, ayar gidiş-dönüş ve bozuk dosya).
 - Gerçek Spotify ile: parça/kapak gösterimi; tek ve 3× hızlı geçiş (son parçada doğru durdu); adanın düğmeleriyle duraklat/devam/önceki; ilerleme çubuğuna tıklayarak %50'ye sarma; Spotify'ı öldürüp yeniden açma (otomatik toparlanma); Brave'de canlı yayın aktif oturumken Spotify'ın gösterilmeye devam etmesi.
 - Not Defteri ön plandayken genişleme/şarkı değişimi/tıklamalarda odak hiç değişmedi.
 - Sahte kenarlıksız tam ekran (ve TopMost tam ekran) pencereyle: oyun modu otomatik açıldı, tıklamalar oyuna geçti, hover genişletmedi, etkileşim modunda kontrol çalıştı ve tıklama oyuna gitmedi, 8 sn zaman aşımı, gizle/göster; ada TopMost pencerenin de üstünde kaldı.

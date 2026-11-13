@@ -50,6 +50,7 @@
                     <StackPanel>
                         <CheckBox x:Name="StartWithWindowsBox" Content="Windows ile başlat" Margin="0,4" />
                         <CheckBox x:Name="HoverBox" Content="Fareyle üzerine gelince genişlet" Margin="0,4" />
+                        <CheckBox x:Name="MediaHudBox" Content="Ses ve oynat/duraklat değişince adada kısa gösterge (medya tuşları)" Margin="0,4" />
                         <Grid Margin="0,8,0,4">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -61,6 +62,52 @@
                                 <ComboBoxItem Content="Adayı gizle" />
                             </ComboBox>
                         </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- ŞARKI SÖZLERİ -->
+                <TextBlock Text="Şarkı sözleri" Style="{StaticResource SectionTitle}" />
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <CheckBox x:Name="LyricsBox" Content="Zamanlanmış şarkı sözlerini göster" Margin="0,4" />
+                        <CheckBox x:Name="LyricsCompactBox" Content="Küçük adada çalan satırı göster (söz yoksa şarkı adı ve sanatçı)" Margin="0,4" />
+                        <Grid Margin="0,8,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Söz yazı tipi" Style="{StaticResource RowLabel}" />
+                            <ComboBox x:Name="LyricsFontBox" Grid.Column="1" MinWidth="220">
+                                <ComboBoxItem Content="Inter (iPhone tarzı kalın)" FontFamily="/Assets/Fonts/#Inter Display" FontWeight="Bold" />
+                                <ComboBoxItem Content="Segoe UI Variable (kalın)" FontFamily="Segoe UI Variable Display" FontWeight="Bold" />
+                                <ComboBoxItem Content="Segoe UI Black (çok kalın)" FontFamily="Segoe UI" FontWeight="Black" />
+                                <ComboBoxItem Content="Bahnschrift (dar, modern)" FontFamily="Bahnschrift" FontWeight="SemiBold" />
+                                <ComboBoxItem Content="Franklin Gothic" FontFamily="Franklin Gothic" FontWeight="Medium" />
+                            </ComboBox>
+                        </Grid>
+                        <TextBlock Style="{StaticResource Hint}"
+                                   Text="Sözler LRCLIB (lrclib.net) adlı ücretsiz hizmetten alınır: bunun için çalan parçanın adı, sanatçısı, albümü ve süresi bu hizmete gönderilir. Sözler yalnızca bellekte tutulur, diske veya günlüğe yazılmaz. Her parçanın zamanlanmış sözü bulunmayabilir." />
+                    </StackPanel>
+                </Border>
+
+                <!-- TEMA -->
+                <TextBlock Text="Tema" Style="{StaticResource SectionTitle}" />
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <Grid Margin="0,4,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Ada rengi" Style="{StaticResource RowLabel}" />
+                            <ComboBox x:Name="ThemeBox" Grid.Column="1" MinWidth="260">
+                                <ComboBoxItem Content="Siyah + kapak rengi (varsayılan)" />
+                                <ComboBoxItem Content="Tam siyah" />
+                                <ComboBoxItem Content="Şarkıya göre renkli" />
+                            </ComboBox>
+                        </Grid>
+                        <TextBlock Style="{StaticResource Hint}"
+                                   Text="Tam siyah: ışıma yok, çalma göstergesi beyaz. Şarkıya göre: adanın arka planı çalan şarkının kapağından alınan koyu bir renge boyanır ve şarkı değişince yumuşakça geçer. Arka plan opaklığı aşağıdan ayarlanır." />
                     </StackPanel>
                 </Border>
 

@@ -28,6 +28,10 @@
 
   <ItemGroup>
     <Resource Include="Assets\app.ico" />
+    <!-- Inter Display (SIL OFL 1.1, github.com/rsms/inter v4.1): iPhone'un kalın yazısına en yakın açık lisanslı yazı tipi. Lisans metni de gömülür. -->
+    <Resource Include="Assets\Fonts\InterDisplay-Bold.ttf" />
+    <Resource Include="Assets\Fonts\InterDisplay-SemiBold.ttf" />
+    <Resource Include="Assets\Fonts\Inter-OFL-LICENSE.txt" />
   </ItemGroup>
 
 </Project>

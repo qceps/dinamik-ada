@@ -13,7 +13,7 @@
         Focusable="False"
         WindowStartupLocation="Manual"
         Left="-32000" Top="-32000"
-        Width="432" Height="208"
+        Width="432" Height="284"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True"
         TextOptions.TextFormattingMode="Ideal"
@@ -22,14 +22,27 @@
 
     <Window.Resources>
         <SolidColorBrush x:Key="PrimaryText" Color="#FFFFFFFF" />
-        <SolidColorBrush x:Key="SecondaryText" Color="#B3FFFFFF" />
-        <SolidColorBrush x:Key="TertiaryText" Color="#73FFFFFF" />
+        <SolidColorBrush x:Key="SecondaryText" Color="#B8FFFFFF" />
+        <SolidColorBrush x:Key="TertiaryText" Color="#70FFFFFF" />
+        <SolidColorBrush x:Key="ChipOnBrush" Color="#33FFFFFF" />
+        <FontFamily x:Key="DisplayFont">/Assets/Fonts/#Inter Display, Segoe UI Variable Display</FontFamily>
+        <FontFamily x:Key="BodyFont">Segoe UI Variable Text, Segoe UI</FontFamily>
+        <!-- Söz yazı tipi ayardan değişir (kod tarafında yeniden atanır). -->
+        <FontFamily x:Key="LyricFont">/Assets/Fonts/#Inter Display, Segoe UI Variable Display</FontFamily>
+        <FontWeight x:Key="LyricWeight">Bold</FontWeight>
+        <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
 
         <Style x:Key="IslandButton" TargetType="Button">
             <Setter Property="Focusable" Value="False" />
             <Setter Property="IsTabStop" Value="False" />
             <Setter Property="Foreground" Value="White" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+            <Setter Property="RenderTransform">
+                <Setter.Value>
+                    <ScaleTransform ScaleX="1" ScaleY="1" />
+                </Setter.Value>
+            </Setter>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -38,10 +51,15 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bg" Property="Background" Value="#1CFFFFFF" />
+                                <Setter TargetName="Bg" Property="Background" Value="#1FFFFFFF" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bg" Property="Background" Value="#36FFFFFF" />
+                                <Setter TargetName="Bg" Property="Background" Value="#38FFFFFF" />
+                                <Setter Property="RenderTransform">
+                                    <Setter.Value>
+                                        <ScaleTransform ScaleX="0.92" ScaleY="0.92" />
+                                    </Setter.Value>
+                                </Setter>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.28" />
@@ -52,6 +70,13 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style x:Key="TimeText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{StaticResource TertiaryText}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
+        </Style>
     </Window.Resources>
 
     <Grid x:Name="ScaleRoot" HorizontalAlignment="Left" VerticalAlignment="Top">
@@ -59,122 +84,236 @@
             <ScaleTransform x:Name="RootScale" ScaleX="1" ScaleY="1" />
         </Grid.LayoutTransform>
 
-        <Grid x:Name="Stage" Width="432" Height="208">
-            <!-- Yalnızca gölge: adanın arkasında aynı boyutta duran plaka -->
-            <Border x:Name="ShadowPlate"
-                    HorizontalAlignment="Center" VerticalAlignment="Top"
-                    Width="{Binding ActualWidth, ElementName=Island}"
-                    Height="{Binding ActualHeight, ElementName=Island}"
-                    Background="Black" IsHitTestVisible="False">
-                <Border.Effect>
-                    <DropShadowEffect x:Name="Shadow" BlurRadius="18" ShadowDepth="3" Direction="270"
-                                      Opacity="0.38" Color="Black" RenderingBias="Performance" />
-                </Border.Effect>
-            </Border>
+        <Grid x:Name="Stage" Width="432" Height="284">
+            <!-- Yumuşak gölge: bulanıklaştırma efekti yerine üst üste binen yarı saydam katmanlar (kodda kurulur).
+                 DropShadowEffect ölçümde daha fazla CPU ve ~50 MB fazla bellek kullanıyordu. -->
+            <Grid x:Name="ShadowPlate" IsHitTestVisible="False" />
 
             <Border x:Name="Island"
                     HorizontalAlignment="Center" VerticalAlignment="Top"
                     Width="172" Height="34"
                     Background="Black">
-                <Grid x:Name="LayerHost">
+                <Grid>
+                    <!-- Kapak renginden hafif ışıma (yalnızca şarkı değişimi / geniş görünümde) -->
+                    <Border x:Name="Glow" IsHitTestVisible="False" Opacity="0">
+                        <Border.Background>
+                            <RadialGradientBrush x:Name="GlowBrush" Center="0.12,0.05" GradientOrigin="0.12,0.05" RadiusX="0.75" RadiusY="1.1">
+                                <GradientStop x:Name="GlowStop0" Offset="0" Color="#4D1ED760" />
+                                <GradientStop x:Name="GlowStop1" Offset="1" Color="#001ED760" />
+                            </RadialGradientBrush>
+                        </Border.Background>
+                    </Border>
 
-                    <!-- BEKLEME: Spotify kapalı / oturum yok / müzik yok -->
-                    <Grid x:Name="IdleLayer" Width="150" Height="30" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="0">
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <Path Width="11" Height="12" Stretch="Uniform" Fill="{StaticResource TertiaryText}" VerticalAlignment="Center"
-                                  Data="M9,1 L19,0 L19,13.2 A3.2,3.2 0 1 1 17,10.3 L17,4.2 L11,4.9 L11,15.2 A3.2,3.2 0 1 1 9,12.3 Z" />
-                            <TextBlock x:Name="IdleText" Margin="7,0,0,1" FontSize="12" Foreground="{StaticResource SecondaryText}"
-                                       VerticalAlignment="Center" Text="Spotify kapalı" />
-                        </StackPanel>
-                    </Grid>
+                    <Grid x:Name="LayerHost">
 
-                    <!-- KÜÇÜK: kapak + gösterge -->
-                    <Grid x:Name="CompactLayer" Width="172" Height="34" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="0">
-                        <local:ArtworkView x:Name="CompactArt" Width="24" Height="24" Radius="7"
-                                           HorizontalAlignment="Left" VerticalAlignment="Top" Margin="5,5,0,0" />
-                        <local:PlaybackBars x:Name="CompactBars" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                            Margin="0,0,13,0" BarHeight="13" BarWidth="2.6" />
-                    </Grid>
-
-                    <!-- ŞARKI DEĞİŞİMİ: kapak + başlık + sanatçı -->
-                    <Grid x:Name="PeekLayer" Width="330" Height="54" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="0">
-                        <local:ArtworkView x:Name="PeekArt" Width="40" Height="40" Radius="10"
-                                           HorizontalAlignment="Left" VerticalAlignment="Top" Margin="7,7,0,0" />
-                        <StackPanel Margin="58,0,50,1" VerticalAlignment="Center">
-                            <TextBlock x:Name="PeekTitle" FontSize="13.5" FontWeight="SemiBold" Foreground="{StaticResource PrimaryText}"
-                                       TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
-                            <TextBlock x:Name="PeekArtist" FontSize="12" Margin="0,1,0,0" Foreground="{StaticResource SecondaryText}"
-                                       TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
-                        </StackPanel>
-                        <local:PlaybackBars x:Name="PeekBars" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                            Margin="0,0,18,0" BarHeight="15" BarWidth="3" />
-                    </Grid>
-
-                    <!-- GENİŞ: büyük kapak, bilgiler, ilerleme, kontroller -->
-                    <Grid x:Name="ExpandedLayer" Width="376" Height="176" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="0">
-                        <local:ArtworkView x:Name="ExpandedArt" Width="66" Height="66" Radius="14"
-                                           HorizontalAlignment="Left" VerticalAlignment="Top" Margin="18,18,0,0" />
-
-                        <StackPanel Margin="98,21,52,0" VerticalAlignment="Top">
-                            <TextBlock x:Name="ExpandedTitle" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource PrimaryText}"
-                                       TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
-                            <TextBlock x:Name="ExpandedArtist" FontSize="13" Margin="0,2,0,0" Foreground="{StaticResource SecondaryText}"
-                                       TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
-                            <TextBlock x:Name="ExpandedAlbum" FontSize="12" Margin="0,2,0,0" Foreground="{StaticResource TertiaryText}"
-                                       TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
-                        </StackPanel>
-
-                        <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,26,20,0">
-                            <local:PlaybackBars x:Name="ExpandedBars" HorizontalAlignment="Right" BarHeight="16" BarWidth="3" />
-                            <Border x:Name="DemoBadge" Visibility="Collapsed" Margin="0,8,0,0" Padding="5,1" CornerRadius="4"
-                                    Background="#26FFFFFF" HorizontalAlignment="Right">
-                                <TextBlock Text="DEMO" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource SecondaryText}" />
-                            </Border>
-                        </StackPanel>
-
-                        <!-- İlerleme (yalnızca oturum zaman çizelgesi bildiriyorsa) -->
-                        <Grid x:Name="ProgressRow" VerticalAlignment="Top" Margin="18,98,18,0" Height="16">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="40" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="40" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock x:Name="ElapsedText" Grid.Column="0" FontSize="11" Foreground="{StaticResource TertiaryText}"
-                                       VerticalAlignment="Center" HorizontalAlignment="Left" Text="0:00" />
-                            <Grid x:Name="SeekArea" Grid.Column="1" Background="Transparent" Margin="4,0">
-                                <Border x:Name="TrackBar" Height="4" CornerRadius="2" Background="#33FFFFFF" VerticalAlignment="Center" />
-                                <Border x:Name="TrackFill" Height="4" CornerRadius="2" Background="#E6FFFFFF"
-                                        VerticalAlignment="Center" HorizontalAlignment="Left" Width="0" />
-                                <Ellipse x:Name="SeekThumb" Width="10" Height="10" Fill="White" HorizontalAlignment="Left"
-                                         VerticalAlignment="Center" Opacity="0" IsHitTestVisible="False">
-                                    <Ellipse.RenderTransform>
-                                        <TranslateTransform x:Name="SeekThumbOffset" />
-                                    </Ellipse.RenderTransform>
-                                </Ellipse>
-                            </Grid>
-                            <TextBlock x:Name="DurationText" Grid.Column="2" FontSize="11" Foreground="{StaticResource TertiaryText}"
-                                       VerticalAlignment="Center" HorizontalAlignment="Right" Text="0:00" />
+                        <!-- BEKLEME: Spotify kapalı / oturum yok / müzik yok -->
+                        <Grid x:Name="IdleLayer" Width="150" Height="30" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="0">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Path Width="11" Height="12" Stretch="Uniform" Fill="{StaticResource TertiaryText}" VerticalAlignment="Center"
+                                      Data="M9,1 L19,0 L19,13.2 A3.2,3.2 0 1 1 17,10.3 L17,4.2 L11,4.9 L11,15.2 A3.2,3.2 0 1 1 9,12.3 Z" />
+                                <TextBlock x:Name="IdleText" Margin="7,0,0,1" FontSize="12" Foreground="{StaticResource SecondaryText}"
+                                           VerticalAlignment="Center" Text="Spotify kapalı" />
+                            </StackPanel>
                         </Grid>
 
-                        <StackPanel x:Name="ControlsRow" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,120,0,0">
-                            <Button x:Name="PreviousButton" Style="{StaticResource IslandButton}" Width="42" Height="42" ToolTip="Önceki">
-                                <Path Width="16" Height="15" Stretch="Uniform" Fill="White" Data="M1,1 H3.4 V15 H1 Z M15,1.4 V14.6 L4.8,8 Z" />
-                            </Button>
-                            <Button x:Name="PlayPauseButton" Style="{StaticResource IslandButton}" Width="50" Height="50" Margin="20,-4,20,0" ToolTip="Oynat / Duraklat">
-                                <Grid>
-                                    <Path x:Name="PlayIcon" Width="20" Height="22" Stretch="Uniform" Fill="White" Margin="3,0,0,0"
-                                          StrokeLineJoin="Round" Stroke="White" StrokeThickness="1.6" Data="M3,1 L15,8 L3,15 Z" />
-                                    <Path x:Name="PauseIcon" Width="18" Height="21" Stretch="Uniform" Fill="White" Visibility="Collapsed"
-                                          Data="M2,0.5 H6.5 V15.5 H2 Z M9.5,0.5 H14 V15.5 H9.5 Z" />
+                        <!-- KÜÇÜK: kapak + gösterge -->
+                        <Grid x:Name="CompactLayer" Width="172" Height="34" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="0">
+                            <local:ArtworkView x:Name="CompactArt" Width="24" Height="24" Radius="7"
+                                               HorizontalAlignment="Left" VerticalAlignment="Top" Margin="5,5,0,0" />
+                            <local:PlaybackBars x:Name="CompactBars" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                Margin="0,0,13,0" BarHeight="13" BarWidth="2.6" />
+                        </Grid>
+
+                        <!-- KÜÇÜK + SÖZ: kapak + çalan satır + gösterge -->
+                        <Grid x:Name="CompactLyricsLayer" Width="250" Height="34" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="0">
+                            <local:ArtworkView x:Name="CompactLyricsArt" Width="24" Height="24" Radius="7"
+                                               HorizontalAlignment="Left" VerticalAlignment="Top" Margin="5,5,0,0" />
+                            <!-- İki yuva arasında çapraz geçiş: eski satır yukarı kayıp söner, yenisi aşağıdan gelir. -->
+                            <Grid x:Name="CompactTextHost" Margin="38,0,40,0" ClipToBounds="True">
+                                <TextBlock x:Name="CompactTextA" FontSize="13" FontFamily="{DynamicResource LyricFont}" FontWeight="{DynamicResource LyricWeight}"
+                                           Foreground="{StaticResource PrimaryText}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,0,1"
+                                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap">
+                                    <TextBlock.RenderTransform>
+                                        <TranslateTransform x:Name="CompactShiftA" />
+                                    </TextBlock.RenderTransform>
+                                </TextBlock>
+                                <TextBlock x:Name="CompactTextB" FontSize="13" FontFamily="{DynamicResource LyricFont}" FontWeight="{DynamicResource LyricWeight}"
+                                           Foreground="{StaticResource PrimaryText}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,0,1"
+                                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Opacity="0">
+                                    <TextBlock.RenderTransform>
+                                        <TranslateTransform x:Name="CompactShiftB" />
+                                    </TextBlock.RenderTransform>
+                                </TextBlock>
+                            </Grid>
+                            <local:PlaybackBars x:Name="CompactLyricsBars" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                Margin="0,0,14,0" BarHeight="13" BarWidth="2.6" />
+                        </Grid>
+
+                        <!-- ŞARKI DEĞİŞİMİ: kapak + başlık + sanatçı -->
+                        <Grid x:Name="PeekLayer" Width="310" Height="56" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="0">
+                            <local:ArtworkView x:Name="PeekArt" Width="42" Height="42" Radius="11"
+                                               HorizontalAlignment="Left" VerticalAlignment="Top" Margin="7,7,0,0" />
+                            <StackPanel Margin="61,0,52,1" VerticalAlignment="Center">
+                                <TextBlock x:Name="PeekTitle" FontFamily="{StaticResource DisplayFont}" FontSize="14" FontWeight="SemiBold"
+                                           Foreground="{StaticResource PrimaryText}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                                <TextBlock x:Name="PeekArtist" FontSize="12" Margin="0,1,0,0" Foreground="{StaticResource SecondaryText}"
+                                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                            </StackPanel>
+                            <local:PlaybackBars x:Name="PeekBars" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                Margin="0,0,20,0" BarHeight="15" BarWidth="3" />
+                        </Grid>
+
+                        <!-- GENİŞ: kapak, bilgiler, (sözler), ilerleme, kontroller -->
+                        <Grid x:Name="ExpandedLayer" Width="340" Height="252" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="0">
+                            <Grid HorizontalAlignment="Left" VerticalAlignment="Top" Margin="16,16,0,0">
+                                <!-- Kapak gölgesi: efekt yerine iki yarı saydam katman -->
+                                <Border Margin="-4,-1,-4,-8" CornerRadius="19" Background="#14000000" IsHitTestVisible="False" />
+                                <Border Margin="-2,0,-2,-4" CornerRadius="16" Background="#24000000" IsHitTestVisible="False" />
+                                <local:ArtworkView x:Name="ExpandedArt" Width="62" Height="62" Radius="14" />
+                            </Grid>
+
+                            <StackPanel Margin="92,19,56,0" VerticalAlignment="Top">
+                                <TextBlock x:Name="ExpandedTitle" FontFamily="{StaticResource DisplayFont}" FontSize="16" FontWeight="SemiBold"
+                                           Foreground="{StaticResource PrimaryText}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                                <TextBlock x:Name="ExpandedArtist" FontSize="13" Margin="0,1,0,0" Foreground="{StaticResource SecondaryText}"
+                                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                                <TextBlock x:Name="ExpandedAlbum" FontSize="12" Margin="0,2,0,0" Foreground="{StaticResource TertiaryText}"
+                                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                            </StackPanel>
+
+                            <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,22,20,0">
+                                <local:PlaybackBars x:Name="ExpandedBars" HorizontalAlignment="Right" BarHeight="16" BarWidth="3" />
+                                <!-- Sözleri aç / kapat (ayarlardaki seçenekle aynı; kalıcı) -->
+                                <Button x:Name="LyricsToggleButton" Style="{StaticResource IslandButton}" Width="30" Height="30"
+                                        HorizontalAlignment="Right" Margin="0,6,-6,0" ToolTip="Sözleri gizle">
+                                    <Border x:Name="LyricsToggleChip" CornerRadius="6" Padding="4,2" Background="{StaticResource ChipOnBrush}">
+                                        <TextBlock x:Name="LyricsToggleGlyph" FontFamily="{StaticResource IconFont}" FontSize="13" Foreground="White" Text="&#xE90A;" />
+                                    </Border>
+                                </Button>
+                            </StackPanel>
+
+                            <!-- Yalnızca demo modunda: kapağın sol alt köşesinde -->
+                            <Border x:Name="DemoBadge" Visibility="Collapsed" Margin="20,62,0,0" Padding="5,1" CornerRadius="4"
+                                    Background="#B3000000" HorizontalAlignment="Left" VerticalAlignment="Top" IsHitTestVisible="False">
+                                <TextBlock Text="DEMO" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource PrimaryText}" />
+                            </Border>
+
+                            <!-- Sözler: tüm satırlar alt alta; çalan satır kayarak üste gelir, diğerleri soluk -->
+                            <Grid x:Name="LyricsBlock" VerticalAlignment="Top" Margin="18,84,18,0" Height="74" ClipToBounds="True" Visibility="Collapsed">
+                                <Grid.OpacityMask>
+                                    <LinearGradientBrush MappingMode="Absolute" StartPoint="0,0" EndPoint="0,74">
+                                        <GradientStop Offset="0" Color="#00000000" />
+                                        <GradientStop Offset="0.07" Color="#FF000000" />
+                                        <GradientStop Offset="0.62" Color="#FF000000" />
+                                        <GradientStop Offset="1" Color="#00000000" />
+                                    </LinearGradientBrush>
+                                </Grid.OpacityMask>
+                                <!-- Canvas: liste 70 px ile sınırlanmasın (yoksa WPF kaydırmadan önce kırpar); kırpma dış ızgarada. -->
+                                <Canvas>
+                                    <StackPanel x:Name="LyricsStack" Width="304">
+                                        <StackPanel.RenderTransform>
+                                            <TranslateTransform x:Name="LyricsScroll" />
+                                        </StackPanel.RenderTransform>
+                                    </StackPanel>
+                                </Canvas>
+                            </Grid>
+
+                            <!-- İlerleme (yalnızca oturum zaman çizelgesi bildiriyorsa) -->
+                            <Grid x:Name="ProgressRow" VerticalAlignment="Top" Margin="18,92,18,0" Height="16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="38" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="38" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Name="ElapsedText" Grid.Column="0" Style="{StaticResource TimeText}" HorizontalAlignment="Left" Text="0:00" />
+                                <Grid x:Name="SeekArea" Grid.Column="1" Background="Transparent" Margin="4,0">
+                                    <Border x:Name="TrackBar" Height="4" CornerRadius="2" Background="#30FFFFFF" VerticalAlignment="Center" />
+                                    <Border x:Name="TrackFill" Height="4" CornerRadius="2" Background="#F2FFFFFF"
+                                            VerticalAlignment="Center" HorizontalAlignment="Left" Width="0" />
+                                    <Ellipse x:Name="SeekThumb" Width="11" Height="11" Fill="White" HorizontalAlignment="Left"
+                                             VerticalAlignment="Center" Opacity="0" IsHitTestVisible="False">
+                                        <Ellipse.RenderTransform>
+                                            <TranslateTransform x:Name="SeekThumbOffset" />
+                                        </Ellipse.RenderTransform>
+                                    </Ellipse>
                                 </Grid>
-                            </Button>
-                            <Button x:Name="NextButton" Style="{StaticResource IslandButton}" Width="42" Height="42" ToolTip="Sonraki">
-                                <Path Width="16" Height="15" Stretch="Uniform" Fill="White" Data="M15,1 H12.6 V15 H15 Z M1,1.4 V14.6 L11.2,8 Z" />
-                            </Button>
-                        </StackPanel>
+                                <TextBlock x:Name="DurationText" Grid.Column="2" Style="{StaticResource TimeText}" HorizontalAlignment="Right" Text="0:00" />
+                            </Grid>
+
+                            <Grid x:Name="ControlsRow" VerticalAlignment="Top" Margin="0,114,0,0" Height="48">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10,0,0,0">
+                                <Button x:Name="PreviousButton" Style="{StaticResource IslandButton}" Width="44" Height="44" ToolTip="Önceki">
+                                    <Path Width="17" Height="15" Stretch="Uniform" Fill="White" StrokeLineJoin="Round" Stroke="White" StrokeThickness="0.8"
+                                          Data="M1,1 H3.4 V15 H1 Z M15,1.4 V14.6 L4.8,8 Z" />
+                                </Button>
+                                <Button x:Name="PlayPauseButton" Style="{StaticResource IslandButton}" Width="52" Height="52" Margin="12,-4,12,0" ToolTip="Oynat / Duraklat">
+                                    <Grid>
+                                        <Path x:Name="PlayIcon" Width="20" Height="22" Stretch="Uniform" Fill="White" Margin="3,0,0,0"
+                                              StrokeLineJoin="Round" Stroke="White" StrokeThickness="1.8" Data="M3,1 L15,8 L3,15 Z" />
+                                        <Path x:Name="PauseIcon" Width="18" Height="21" Stretch="Uniform" Fill="White" Visibility="Collapsed"
+                                              Data="M2.6,0.5 H5.9 A1,1 0 0 1 6.9,1.5 V14.5 A1,1 0 0 1 5.9,15.5 H2.6 A1,1 0 0 1 1.6,14.5 V1.5 A1,1 0 0 1 2.6,0.5 Z M10.1,0.5 H13.4 A1,1 0 0 1 14.4,1.5 V14.5 A1,1 0 0 1 13.4,15.5 H10.1 A1,1 0 0 1 9.1,14.5 V1.5 A1,1 0 0 1 10.1,0.5 Z" />
+                                    </Grid>
+                                </Button>
+                                <Button x:Name="NextButton" Style="{StaticResource IslandButton}" Width="44" Height="44" ToolTip="Sonraki">
+                                    <Path Width="17" Height="15" Stretch="Uniform" Fill="White" StrokeLineJoin="Round" Stroke="White" StrokeThickness="0.8"
+                                          Data="M15,1 H12.6 V15 H15 Z M1,1.4 V14.6 L11.2,8 Z" />
+                                </Button>
+                            </StackPanel>
+
+                            <!-- Spotify ses seviyesi (Windows karıştırıcısındaki uygulama sesi; sistem sesi değil) -->
+                            <StackPanel x:Name="VolumeGroup" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,16,0"
+                                        ToolTip="Spotify ses seviyesi (fare tekerleği de çalışır)">
+                                <Button x:Name="MuteButton" Style="{StaticResource IslandButton}" Width="32" Height="32" ToolTip="Sessize al / aç">
+                                    <TextBlock x:Name="MuteGlyph" FontFamily="{StaticResource IconFont}" FontSize="15" Foreground="White" Text="&#xE995;" />
+                                </Button>
+                                <Grid x:Name="VolumeArea" Width="82" Height="24" Background="Transparent" Margin="4,0,0,0" Cursor="Hand">
+                                    <Border Height="4" CornerRadius="2" Background="#30FFFFFF" VerticalAlignment="Center" />
+                                    <Border x:Name="VolumeFill" Height="4" CornerRadius="2" Background="#F2FFFFFF"
+                                            VerticalAlignment="Center" HorizontalAlignment="Left" Width="60" />
+                                    <Ellipse x:Name="VolumeThumb" Width="11" Height="11" Fill="White" HorizontalAlignment="Left"
+                                             VerticalAlignment="Center" Opacity="0" IsHitTestVisible="False">
+                                        <Ellipse.RenderTransform>
+                                            <TranslateTransform x:Name="VolumeThumbOffset" />
+                                        </Ellipse.RenderTransform>
+                                    </Ellipse>
+                                </Grid>
+                            </StackPanel>
+                            </Grid>
+                        </Grid>
+
+                        <!-- GÖSTERGE: ses seviyesi (medya/ses tuşları) -->
+                        <Grid x:Name="HudVolumeLayer" Width="216" Height="34" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="0">
+                            <TextBlock x:Name="HudVolumeGlyph" FontFamily="{StaticResource IconFont}" FontSize="15" Foreground="White"
+                                       HorizontalAlignment="Left" VerticalAlignment="Center" Margin="16,0,0,0" Text="&#xE995;" />
+                            <Grid x:Name="HudVolumeTrack" Margin="44,0,56,0" Height="6" VerticalAlignment="Center">
+                                <Border CornerRadius="3" Background="#33FFFFFF" />
+                                <Border x:Name="HudVolumeFill" CornerRadius="3" Background="White" HorizontalAlignment="Left" Width="0" />
+                            </Grid>
+                            <TextBlock x:Name="HudVolumeText" Style="{StaticResource TimeText}" FontSize="12" Foreground="{StaticResource SecondaryText}"
+                                       HorizontalAlignment="Right" Margin="0,0,16,1" Text="%0" />
+                        </Grid>
+
+                        <!-- GÖSTERGE: oynat / duraklat (medya tuşları veya Spotify'dan) -->
+                        <Grid x:Name="HudPlaybackLayer" Width="180" Height="34" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="0">
+                            <local:ArtworkView x:Name="HudArt" Width="24" Height="24" Radius="7"
+                                               HorizontalAlignment="Left" VerticalAlignment="Top" Margin="5,5,0,0" />
+                            <TextBlock x:Name="HudPlaybackText" FontFamily="{StaticResource DisplayFont}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource PrimaryText}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,1" Text="Duraklatıldı" />
+                            <Grid HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,15,0">
+                                <Path x:Name="HudPlayIcon" Width="12" Height="13" Stretch="Uniform" Fill="White" Margin="2,0,0,0"
+                                      StrokeLineJoin="Round" Stroke="White" StrokeThickness="1.4" Data="M3,1 L15,8 L3,15 Z" />
+                                <Path x:Name="HudPauseIcon" Width="11" Height="13" Stretch="Uniform" Fill="White" Visibility="Collapsed"
+                                      Data="M2.6,0.5 H5.9 A1,1 0 0 1 6.9,1.5 V14.5 A1,1 0 0 1 5.9,15.5 H2.6 A1,1 0 0 1 1.6,14.5 V1.5 A1,1 0 0 1 2.6,0.5 Z M10.1,0.5 H13.4 A1,1 0 0 1 14.4,1.5 V14.5 A1,1 0 0 1 13.4,15.5 H10.1 A1,1 0 0 1 9.1,14.5 V1.5 A1,1 0 0 1 10.1,0.5 Z" />
+                            </Grid>
+                        </Grid>
                     </Grid>
                 </Grid>
             </Border>
+
+            <!-- Çok ince kenar çizgisi: koyu masaüstünde de adanın sınırı belli olsun -->
+            <Border x:Name="Outline" HorizontalAlignment="Center" VerticalAlignment="Top"
+                    Width="{Binding ActualWidth, ElementName=Island}" Height="{Binding ActualHeight, ElementName=Island}"
+                    BorderBrush="#16FFFFFF" BorderThickness="1" IsHitTestVisible="False" />
 
             <!-- Etkileşim modu göstergesi: ince halka -->
             <Border x:Name="InteractionRing" HorizontalAlignment="Center" VerticalAlignment="Top"

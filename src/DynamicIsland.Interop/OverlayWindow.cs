@@ -51,4 +51,13 @@ public static class OverlayWindow
         GetWindowRect(hwnd, out var r) ? new PixelRect(r.Left, r.Top, r.Right, r.Bottom) : default;
 
     public static nint Foreground => GetForegroundWindow();
+
+    /// <summary>İmlecin ekran konumu (fiziksel piksel).</summary>
+    public static bool TryGetCursorPos(out int x, out int y)
+    {
+        var ok = GetCursorPos(out var p);
+        x = p.X;
+        y = p.Y;
+        return ok;
+    }
 }

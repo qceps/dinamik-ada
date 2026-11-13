@@ -25,8 +25,8 @@ public class IslandStateResolverTests
 {
     private static IslandInputs Inputs(
         bool hidden = false, MediaAvailability availability = MediaAvailability.Ready, bool hasTrack = true,
-        IdleBehavior idle = IdleBehavior.ShowIdle, bool expand = false, bool peek = false) =>
-        new(hidden, availability, hasTrack, idle, expand, peek);
+        IdleBehavior idle = IdleBehavior.ShowIdle, bool expand = false, bool peek = false, bool hud = false) =>
+        new(hidden, availability, hasTrack, idle, expand, peek, hud);
 
     [Fact] public void User_hidden_wins() => Assert.Equal(IslandVisual.Hidden, IslandStateResolver.Resolve(Inputs(hidden: true, expand: true)));
     [Fact] public void Unknown_before_first_read_is_hidden() => Assert.Equal(IslandVisual.Hidden, IslandStateResolver.Resolve(Inputs(availability: MediaAvailability.Unknown, hasTrack: false)));
@@ -36,6 +36,10 @@ public class IslandStateResolverTests
     [Fact] public void Expand_beats_peek() => Assert.Equal(IslandVisual.Expanded, IslandStateResolver.Resolve(Inputs(expand: true, peek: true)));
     [Fact] public void Peek_when_active() => Assert.Equal(IslandVisual.Peek, IslandStateResolver.Resolve(Inputs(peek: true)));
     [Fact] public void Compact_by_default() => Assert.Equal(IslandVisual.Compact, IslandStateResolver.Resolve(Inputs()));
+    [Fact] public void Hud_beats_peek_and_compact() => Assert.Equal(IslandVisual.Hud, IslandStateResolver.Resolve(Inputs(hud: true, peek: true)));
+    [Fact] public void Expanded_is_not_interrupted_by_hud() => Assert.Equal(IslandVisual.Expanded, IslandStateResolver.Resolve(Inputs(hud: true, expand: true)));
+    [Fact] public void Hud_shows_even_when_spotify_closed() => Assert.Equal(IslandVisual.Hud, IslandStateResolver.Resolve(Inputs(availability: MediaAvailability.SpotifyNotRunning, hasTrack: false, idle: IdleBehavior.Hide, hud: true, expand: true)));
+    [Fact] public void Hidden_beats_hud() => Assert.Equal(IslandVisual.Hidden, IslandStateResolver.Resolve(Inputs(hidden: true, hud: true)));
 
     [Fact]
     public void Idle_texts_distinguish_closed_and_no_session()
