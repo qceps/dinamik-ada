@@ -1,0 +1,75 @@
+# "v1.2.0" gibi bir etiket gönderilince: test et, iki yayın biçimini derle ve GitHub Releases'e yükle.
+#   git tag v1.2.0
+#   git push origin v1.2.0
+name: Sürüm yayınla
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Yayınlanacak etiket (ör. v1.2.0) — önceden gönderilmiş olmalı'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Sürüm numarası
+        shell: pwsh
+        run: |
+          $version = $env:TAG.TrimStart('v')
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Etiket vX.Y.Z biçiminde olmalı: $env:TAG" }
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Birim testleri
+        run: dotnet test tests/DynamicIsland.Tests -c Release
+
+      # Tek dosya, .NET içinde (sıkıştırılmış): kurulum gerekmez (~80 MB).
+      - name: Yayınla (tek dosya, .NET dahil)
+        run: >
+          dotnet publish src/DynamicIsland.App -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true
+          -p:DebugType=none -p:Version=${{ env.VERSION }} -o out/full
+
+      # Hafif: bilgisayarda .NET 10 Masaüstü Çalışma Zamanı gerekir (~27 MB).
+      - name: Yayınla (hafif, .NET gerektirir)
+        run: >
+          dotnet publish src/DynamicIsland.App -c Release -r win-x64 --self-contained false
+          -p:PublishSingleFile=true -p:DebugType=none -p:Version=${{ env.VERSION }} -o out/lite
+
+      - name: Dosyaları adlandır
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item out/full/DinamikAda.exe "dist/DinamikAda-$env:VERSION-win-x64.exe"
+          Copy-Item out/lite/DinamikAda.exe "dist/DinamikAda-$env:VERSION-win-x64-hafif.exe"
+          Get-ChildItem dist | Format-Table Name, @{n='MB'; e={[math]::Round($_.Length / 1MB, 1)}}
+
+      - name: GitHub sürümü oluştur
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $notes = @"
+          ## İndirme
+          - **DinamikAda-$env:VERSION-win-x64.exe** — önerilen. Tek dosya, kurulum gerekmez.
+          - **DinamikAda-$env:VERSION-win-x64-hafif.exe** — daha küçük; bilgisayarda [.NET 10 Masaüstü Çalışma Zamanı](https://dotnet.microsoft.com/download/dotnet/10.0) kurulu olmalı.
+
+          Windows 10 (19041) ve üzeri, x64. Yönetici yetkisi istemez.
+          "@
+          gh release create $env:TAG (Get-ChildItem dist).FullName --title "Dinamik Ada $env:VERSION" --notes $notes --generate-notes

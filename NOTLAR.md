@@ -52,6 +52,20 @@ Performans (Release): duraklatılmışken CPU ~%0,03; çalarken (çubuk animasyo
 - **Daha çabuk tepki:** fareyle genişleme gecikmesi 120 → 90 ms, büyüme animasyonu 460 → 400 ms, daralma 300 → 280 ms, katman geçişleri 200/90 → 180/80 ms.
 - Birim testleri artık gerçek uygulama günlüğüne değil `%TEMP%\DinamikAda-test-logs`'a yazıyor (bilerek hata üreten testler kullanıcı günlüğünde "Şarkı sözü alınamadı" uyarısı bırakıyordu).
 
+## 14.11.2026 (2) — küçük paket, sürükleme, GitHub Actions
+- **Paket ölçümleri** (exe boyutu / demo modunda ada görünene kadar, iki tur):
+  | Biçim | Boyut | Açılış |
+  |---|---|---|
+  | Eski: tek dosya, .NET dahil, ReadyToRun | 251 MB | ~1,8–1,9 sn |
+  | Tek dosya, .NET dahil, sıkıştırılmış, ReadyToRun | 96 MB | 1,56–1,75 sn |
+  | **Tek dosya, .NET dahil, sıkıştırılmış** (seçilen) | **79 MB** | 1,40–1,74 sn |
+  | .NET gerektiren, ReadyToRun | 27 MB | **açılmıyor**: coreclr.dll içinde 0xC0000602 (bu bilgisayarda) |
+  | **.NET gerektiren** (seçilen "hafif") | **27 MB** | 0,97–1,26 sn |
+
+  Hafif sürümün 27 MB'ının çoğu Windows SDK (WinRT) projeksiyonu; WPF kırpmayı (trimming) desteklemediği için küçültülmedi. Kullanıcının kopyası sıkıştırılmış sürüme geçti: gerçek modda ada 1,32 sn'de göründü.
+- **Sürükleyerek taşıma:** yalnızca Ayarlar penceresi açıkken (kullanıcı isteği). Adanın boş yerinden tutulur (düğmeler, ilerleme ve ses çubuğu kendi tıklamalarını alır), 4 px eşikten sonra sürükleme başlar, fark ekran koordinatlarından hesaplanır; pencere canlı taşınır, bırakınca `HorizontalOffset`/`TopMargin` kaydedilir. Ortadan 12 DIP içinde ortaya yapışır, üst mesafe 0–80. Ayarlar açıkken oyun modunda da tıklanabilir olur ve ince çerçeve görünür; sürüklerken fareyle genişleme bekletilir. Gerçek ekranda fareyle denenmedi.
+- **GitHub Actions:** `ci.yml` (main push + PR: Release derleme + testler), `release.yml` (`v*` etiketi: testler, iki yayın, `gh release create` ile Releases'e yükleme; `github.token`, `contents: write`). Sürüm numarası etiketten (`-p:Version`). `Directory.Build.props` sürümü 1.1.0.
+
 ## Bilinen kısıtlar
 - Exclusive fullscreen oyunlarda normal pencere görünmeyebilir; doğrulanmadı.
 - Windows "Animasyon efektleri" sistem ayarı değiştirilerek test edilmedi (yalnızca uygulama içi anahtar).

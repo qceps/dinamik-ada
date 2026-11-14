@@ -1,0 +1,31 @@
+# Her push ve pull request'te: çözümü derle, birim testlerini çalıştır.
+name: Derleme ve test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Derle
+        run: dotnet build DynamicIsland.sln -c Release
+
+      - name: Birim testleri
+        run: dotnet test tests/DynamicIsland.Tests -c Release --no-build --logger "console;verbosity=normal"

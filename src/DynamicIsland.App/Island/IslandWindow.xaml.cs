@@ -79,6 +79,7 @@ public partial class IslandWindow : Window
         _lyricTimer.Tick += (_, _) => UpdateLyrics();
 
         InitializeMedia();
+        InitializeDrag();
         ApplyLayerState(IslandVisual.Hidden, animate: false);
         LayoutExpanded();
         UpdateCorners();

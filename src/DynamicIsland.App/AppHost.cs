@@ -111,7 +111,13 @@ public sealed class AppHost : IDisposable
                 ApplyHotkeys(notify: false);
             }
         };
-        _settingsWindow.Closed += (_, _) => _settingsWindow = null;
+        // Ayarlar açıkken ada sürüklenerek taşınabilir; kapanınca kilitlenir.
+        _settingsWindow.Closed += (_, _) =>
+        {
+            _settingsWindow = null;
+            _controller?.SetDragEnabled(false);
+        };
+        _controller?.SetDragEnabled(true);
         _settingsWindow.Show();
         _settingsWindow.Activate(); // Kullanıcı açtığı için öne gelmesi beklenir.
     }

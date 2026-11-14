@@ -3,13 +3,27 @@
 Ekranın üst ortasında duran, Spotify masaüstü uygulamasında çalan şarkıyı ve zamanlanmış sözlerini gösteren Dynamic Island tarzı kapsül. Hesap girişi, API anahtarı veya Premium gerekmez: parça bilgisi Windows medya oturumundan (GSMTC), sözler LRCLIB'den alınır.
 
 ## Kurulum
-1. `publish\DinamikAda-win-x64\DinamikAda.exe` dosyasını istediğiniz klasöre kopyalayın (tek dosya, .NET kurulumu gerekmez, yönetici yetkisi istemez).
-2. Çalıştırın. Görev çubuğunda pencere açılmaz; simge **sistem tepsisinde** görünür.
+1. Deponun **Releases** sayfasından bir dosya indirin:
+   - `DinamikAda-<sürüm>-win-x64.exe` (~80 MB) — önerilen; tek dosya, .NET kurulumu gerekmez.
+   - `DinamikAda-<sürüm>-win-x64-hafif.exe` (~27 MB) — bilgisayarda [.NET 10 Masaüstü Çalışma Zamanı](https://dotnet.microsoft.com/download/dotnet/10.0) kurulu olmalı.
+2. İstediğiniz klasöre koyup çalıştırın (yönetici yetkisi istemez). Görev çubuğunda pencere açılmaz; simge **sistem tepsisinde** görünür.
 3. Windows ile başlatmak isterseniz Ayarlar → "Windows ile başlat" (varsayılan kapalı).
 
 Kaynaktan derlemek için (.NET 10 SDK):
 ```bash
-dotnet publish src/DynamicIsland.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishReadyToRun=true -o publish/DinamikAda-win-x64
+dotnet publish src/DynamicIsland.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=none -o publish/DinamikAda-win-x64
+```
+
+Hafif sürüm için `--self-contained false -p:PublishSingleFile=true -p:DebugType=none`. (ReadyToRun bu sürümde .NET'in içinde çöktüğü, tek dosyada ise ölçülebilir hız kazandırmadığı için kullanılmıyor.)
+
+### Otomatik derleme ve sürüm (GitHub Actions)
+- `main`'e her push'ta ve pull request'te çözüm derlenir, birim testleri çalışır (`.github/workflows/ci.yml`).
+- Sürüm yayınlamak için etiket gönderin; iki exe derlenip **Releases**'e yüklenir (`.github/workflows/release.yml`):
+```bash
+git tag v1.1.0
+```
+```bash
+git push origin v1.1.0
 ```
 
 ## Kullanım
@@ -37,7 +51,7 @@ Sözler [LRCLIB](https://lrclib.net)'ten alınır (ücretsiz, anahtar gerektirme
 Varsayılan "Tam ekran algılanınca": ön plandaki uygulama ekranı kaplıyorsa ada tıklamaları alttaki oyuna geçirir ve fareyle genişlemez. Kontrollere tıklamak için **Ctrl+Shift+F11** ile etkileşim modunu açın (ince çerçeve görünür; 8 sn hareketsizlikte kendiliğinden kapanır). Masaüstü ve kenarlıksız tam ekranda test edildi; **özel (exclusive) tam ekran oyunlarda normal pencereler görünmeyebilir** — bu senaryo doğrulanmadı.
 
 ### Ayarlar
-Tema (Siyah + kapak rengi, Tam siyah, Şarkıya göre renkli), şarkı sözleri (aç/kapat, küçük adada göster, yazı tipi), medya göstergesi, monitör, yatay konum, üst mesafe, boyut, arka plan opaklığı, animasyonlar, şarkı değişiminde açık kalma süresi, Spotify kapalıyken davranış, oyun modu, kısayollar, konumu varsayılana döndürme, çıkış. Ayarlar `%APPDATA%\DinamikAda\settings.json` içinde saklanır.
+Tema (Siyah + kapak rengi, Tam siyah, Şarkıya göre renkli), şarkı sözleri (aç/kapat, küçük adada göster, yazı tipi), medya göstergesi, monitör, yatay konum, üst mesafe, boyut, arka plan opaklığı, animasyonlar, şarkı değişiminde açık kalma süresi, Spotify kapalıyken davranış, oyun modu, kısayollar, konumu varsayılana döndürme, çıkış. **Ayarlar penceresi açıkken ada fareyle sürüklenerek taşınabilir** (ortaya yaklaşınca ortaya yapışır; pencere kapanınca kilitlenir). Ayarlar `%APPDATA%\DinamikAda\settings.json` içinde saklanır.
 
 ### Diğer
 - `DinamikAda.exe --demo`: sahte verilerle görsel demo (Spotify'a bağlanmaz, "DEMO" rozeti).

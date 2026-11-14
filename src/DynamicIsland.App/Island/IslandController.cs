@@ -66,7 +66,7 @@ public sealed partial class IslandController : IDisposable
         _hoverEnterTimer.Tick += (_, _) =>
         {
             _hoverEnterTimer.Stop();
-            if (!_game.IsActive && _settings.Current.HoverToExpand && _window.IsCursorOverIsland())
+            if (!_game.IsActive && _settings.Current.HoverToExpand && !_window.IsDragPending && _window.IsCursorOverIsland())
             {
                 _hover = true;
                 _hoverWatch.Start();
@@ -136,6 +136,7 @@ public sealed partial class IslandController : IDisposable
         _window.SeekRequested += position => RunCommand(_media.SeekAsync(position));
         _window.PlacementInvalidated += SchedulePlace;
         InitializeMedia();
+        InitializeDrag();
         _media.SnapshotChanged += OnSnapshotFromAnyThread;
         _settings.Changed += OnSettingsChanged;
         _game.ActiveChanged += OnGameModeChanged;
@@ -218,7 +219,9 @@ public sealed partial class IslandController : IDisposable
     }
 
     /// <summary>Konumu ayarlara göre (monitör, kaydırma, üst boşluk, ölçek, DPI) yeniden hesaplar.</summary>
-    public void Place()
+    public void Place() => Place(_settings.Current.HorizontalOffset, _settings.Current.TopMargin);
+
+    private void Place(double horizontalOffset, double topMargin)
     {
         var s = _settings.Current;
         var monitor = DisplayMonitors.Resolve(s.MonitorDeviceName);
@@ -228,8 +231,8 @@ public sealed partial class IslandController : IDisposable
             (IslandWindow.BaseWidth * s.Scale, IslandWindow.BaseHeight * s.Scale),
             IslandWindow.MaxIslandWidth * s.Scale,
             IslandWindow.MaxIslandHeight * s.Scale,
-            s.HorizontalOffset,
-            s.TopMargin);
+            horizontalOffset,
+            topMargin);
         _window.Place(rect);
     }
 
@@ -455,8 +458,8 @@ public sealed partial class IslandController : IDisposable
         }
 
         _window.SetVisual(visual);
-        _window.SetClickThrough(_game.IsActive && !_interaction);
-        _window.SetInteractionIndicator(_interaction && visual != IslandVisual.Hidden);
+        _window.SetClickThrough(_game.IsActive && !_interaction && !_dragEnabled);
+        _window.SetInteractionIndicator((_interaction || _dragEnabled) && visual != IslandVisual.Hidden);
         StateChanged?.Invoke();
     }
 
