@@ -53,6 +53,9 @@ Varsayılan "Tam ekran algılanınca": ön plandaki uygulama ekranı kaplıyorsa
 ### Ayarlar
 Tema (Siyah + kapak rengi, Tam siyah, Şarkıya göre renkli), şarkı sözleri (aç/kapat, küçük adada göster, yazı tipi), medya göstergesi, monitör, yatay konum, üst mesafe, boyut, arka plan opaklığı, animasyonlar, şarkı değişiminde açık kalma süresi, Spotify kapalıyken davranış, oyun modu, kısayollar, konumu varsayılana döndürme, çıkış. **Ayarlar penceresi açıkken ada fareyle sürüklenerek taşınabilir** (ortaya yaklaşınca ortaya yapışır; pencere kapanınca kilitlenir). Ayarlar `%APPDATA%\DinamikAda\settings.json` içinde saklanır.
 
+### Güncellemeler
+Uygulama açılıştan 20 sn sonra ve günde bir GitHub Releases'te yeni sürüm olup olmadığına bakar (Ayarlar → Güncellemeler'den kapatılabilir). Yeni sürüm varsa tepside bildirim çıkar; bildirime, tepsi menüsündeki **Güncelle**'ye ya da Ayarlar'daki düğmeye tıklayınca yeni exe indirilir, GitHub'ın verdiği SHA-256 özetiyle doğrulanır, eskisinin yerine konur ve uygulama yeniden başlar. Hafif sürüm yine hafif sürümle güncellenir. GitHub'a yalnızca uygulamanın adı ve sürümü gönderilir. Exe yazılamayan bir klasördeyse (ör. Program Files) indirme sayfası açılır.
+
 ### Diğer
 - `DinamikAda.exe --demo`: sahte verilerle görsel demo (Spotify'a bağlanmaz, "DEMO" rozeti).
 - `DinamikAda.exe --render <klasör>`: geliştirici aracı; adanın tüm durumlarını demo verisiyle PNG olarak döker ve çıkar (ekrana çizmez, açık kopyayı etkilemez).
