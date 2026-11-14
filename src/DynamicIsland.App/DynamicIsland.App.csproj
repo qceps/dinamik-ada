@@ -21,6 +21,14 @@
     <Using Remove="System.Drawing" />
   </ItemGroup>
 
+  <!-- Güncelleme denetimi hangi dosyayı indireceğini bilsin: full (tek dosya, .NET dahil) / lite (.NET gerektirir). -->
+  <PropertyGroup>
+    <UpdateFlavor Condition="'$(UpdateFlavor)' == ''">full</UpdateFlavor>
+  </PropertyGroup>
+  <ItemGroup>
+    <AssemblyMetadata Include="UpdateFlavor" Value="$(UpdateFlavor)" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\DynamicIsland.Core\DynamicIsland.Core.csproj" />
     <ProjectReference Include="..\DynamicIsland.Interop\DynamicIsland.Interop.csproj" />

@@ -219,6 +219,22 @@
                     </StackPanel>
                 </Border>
 
+                <!-- GÜNCELLEMELER -->
+                <TextBlock Text="Güncellemeler" Style="{StaticResource SectionTitle}" />
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <CheckBox x:Name="UpdatesBox" Content="Güncellemeleri otomatik denetle (açılışta ve günde bir)" Margin="0,4" />
+                        <TextBlock x:Name="UpdateStatusText" Margin="0,6,0,2" TextWrapping="Wrap" />
+                        <StackPanel Orientation="Horizontal" Margin="0,6,0,4">
+                            <Button x:Name="CheckUpdateButton" Content="Şimdi denetle" />
+                            <Button x:Name="InstallUpdateButton" Content="Güncelle" Margin="8,0,0,0" IsEnabled="False" />
+                            <Button x:Name="ReleasesButton" Content="Sürüm sayfası" Margin="8,0,0,0" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource Hint}"
+                                   Text="Denetim için GitHub'a (api.github.com) uygulamanın adı ve sürümüyle istek gönderilir; başka bilgi gönderilmez. Güncelle'ye basınca yeni sürüm indirilir, GitHub'ın verdiği SHA-256 özetiyle doğrulanır, eskisinin yerine konur ve uygulama yeniden başlar." />
+                    </StackPanel>
+                </Border>
+
                 <!-- HAKKINDA -->
                 <TextBlock Text="Hakkında" Style="{StaticResource SectionTitle}" />
                 <Border Style="{StaticResource Card}">

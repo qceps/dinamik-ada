@@ -108,6 +108,9 @@ public sealed class AppSettings
     /// <summary>Sistem sesi değişince ve oynat/duraklat olunca adada kısa gösterge (medya tuşları).</summary>
     public bool ShowMediaHud { get; set; } = true;
 
+    /// <summary>Açılışta ve günde bir GitHub Releases'ten yeni sürüm denetle.</summary>
+    public bool CheckForUpdates { get; set; } = true;
+
     public IslandTheme Theme { get; set; } = IslandTheme.BlackAccent;
 
     public HotkeyGesture ToggleExpandHotkey { get; set; } = new(HotkeyModifiers.Control | HotkeyModifiers.Shift, 0x78); // F9

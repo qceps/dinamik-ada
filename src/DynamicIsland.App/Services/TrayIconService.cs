@@ -28,6 +28,8 @@ public sealed class TrayIconService : IDisposable
         menu.Items.Add(_interactionItem);
         menu.Items.Add(_gameModeItem);
         menu.Items.Add(new ToolStripSeparator());
+        _updateItem = new ToolStripMenuItem("Güncelle", null, (_, _) => UpdateRequested?.Invoke()) { Visible = false };
+        menu.Items.Add(_updateItem);
         menu.Items.Add(new ToolStripMenuItem("Çıkış", null, (_, _) => ExitRequested?.Invoke()));
 
         _icon = new NotifyIcon
@@ -44,7 +46,40 @@ public sealed class TrayIconService : IDisposable
                 SettingsRequested?.Invoke();
             }
         };
+        _icon.BalloonTipClicked += (_, _) =>
+        {
+            var action = _balloonAction;
+            _balloonAction = null;
+            action?.Invoke();
+        };
+        _icon.BalloonTipClosed += (_, _) => _balloonAction = null;
     }
+
+    private readonly ToolStripMenuItem _updateItem;
+    private Action? _balloonAction;
+
+    /// <summary>Tepsi menüsündeki "Güncelle" öğesi (null: gizle).</summary>
+    public void SetUpdateAvailable(string? version)
+    {
+        _updateItem.Visible = version is not null;
+        _updateItem.Text = version is null ? "Güncelle" : $"Güncelle ({version})";
+    }
+
+    /// <summary>Bilgi bildirimi; tıklanırsa <paramref name="onClick"/> çalışır.</summary>
+    public void ShowInfo(string title, string text, Action? onClick = null)
+    {
+        try
+        {
+            _balloonAction = onClick;
+            _icon.ShowBalloonTip(6000, title, text, ToolTipIcon.Info);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Tepsi bildirimi gösterilemedi", ex);
+        }
+    }
+
+    public event Action? UpdateRequested;
 
     public event Action? SettingsRequested;
     public event Action? ToggleVisibilityRequested;

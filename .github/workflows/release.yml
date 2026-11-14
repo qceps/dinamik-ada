@@ -50,7 +50,7 @@ jobs:
       - name: Yayınla (hafif, .NET gerektirir)
         run: >
           dotnet publish src/DynamicIsland.App -c Release -r win-x64 --self-contained false
-          -p:PublishSingleFile=true -p:DebugType=none -p:Version=${{ env.VERSION }} -o out/lite
+          -p:PublishSingleFile=true -p:DebugType=none -p:UpdateFlavor=lite -p:Version=${{ env.VERSION }} -o out/lite
 
       - name: Dosyaları adlandır
         shell: pwsh

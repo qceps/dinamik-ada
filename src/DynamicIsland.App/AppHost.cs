@@ -24,11 +24,14 @@ public sealed class AppHost : IDisposable
     private TrayIconService? _tray;
     private SettingsWindow? _settingsWindow;
     private AppSettings? _lastHotkeySettings;
+    private UpdateService? _updates;
+    private System.Windows.Threading.DispatcherTimer? _updateTimer;
+    private Version? _notifiedUpdate;
     private bool _disposed;
 
     public AppHost(bool demo) => _demo = demo;
 
-    public async void Start(bool openSettings)
+    public async void Start(bool openSettings, bool justUpdated = false)
     {
         try
         {
@@ -62,6 +65,17 @@ public sealed class AppHost : IDisposable
             _tray.ToggleInteractionRequested += () => _controller.ToggleInteraction();
             _tray.ExitRequested += Exit;
             _controller.StateChanged += UpdateTray;
+
+            _updates = new UpdateService();
+            _updates.Changed += OnUpdateChanged;
+            _tray.UpdateRequested += () => _ = InstallUpdateAsync();
+            _ = Task.Run(UpdateService.CleanupLeftovers);
+            if (justUpdated)
+            {
+                _tray.ShowInfo("Dinamik Ada güncellendi", $"Sürüm {_updates.CurrentVersion.ToString(3)} çalışıyor.");
+            }
+
+            ScheduleUpdateChecks();
 
             _controller.Start();
             await mediaStart;
@@ -98,7 +112,7 @@ public sealed class AppHost : IDisposable
             return;
         }
 
-        _settingsWindow = new SettingsWindow(_settings, _hotkeys, () => _game.IsActive, _demo);
+        _settingsWindow = new SettingsWindow(_settings, _hotkeys, () => _game.IsActive, _demo, _updates, () => _ = InstallUpdateAsync());
         _settingsWindow.ExitRequested += Exit;
         _settingsWindow.HotkeyCaptureChanged += capturing =>
         {
@@ -182,6 +196,58 @@ public sealed class AppHost : IDisposable
         _settingsWindow?.RefreshStatus();
     }
 
+    // ---- Güncellemeler ----
+
+    /// <summary>Açılıştan 20 sn sonra, ardından günde bir (ayar açıksa; demo modunda değil).</summary>
+    private void ScheduleUpdateChecks()
+    {
+        _updateTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(20) };
+        _updateTimer.Tick += (_, _) =>
+        {
+            _updateTimer.Interval = TimeSpan.FromHours(24);
+            if (!_demo && _settings?.Current.CheckForUpdates == true && _updates is not null)
+            {
+                _ = _updates.CheckAsync();
+            }
+        };
+        _updateTimer.Start();
+    }
+
+    private void OnUpdateChanged()
+    {
+        if (_updates is null)
+        {
+            return;
+        }
+
+        var available = _updates.State == UpdateState.Available ? _updates.Available : null;
+        _tray?.SetUpdateAvailable(available?.Version.ToString(3));
+        _settingsWindow?.RefreshUpdateStatus();
+
+        // Aynı sürüm için yalnızca bir kez bildir.
+        if (available is not null && available.Version != _notifiedUpdate)
+        {
+            _notifiedUpdate = available.Version;
+            _tray?.ShowInfo($"Dinamik Ada {available.Version.ToString(3)} hazır",
+                "Güncellemek için tıklayın (tepsi menüsünden ya da Ayarlar'dan da yapılabilir).",
+                () => _ = InstallUpdateAsync());
+        }
+    }
+
+    private async Task InstallUpdateAsync()
+    {
+        if (_updates is null)
+        {
+            return;
+        }
+
+        if (await _updates.InstallAsync())
+        {
+            Log.Info("Yeni sürüm başlatıldı; eski kopya kapanıyor");
+            Application.Current.Shutdown();
+        }
+    }
+
     private void Exit()
     {
         Log.Info("Kullanıcı çıkış istedi");
@@ -207,6 +273,8 @@ public sealed class AppHost : IDisposable
             Log.Warn("Medya kaynağı kapatılırken hata", ex);
         }
 
+        _updateTimer?.Stop();
+        _updates?.Dispose();
         _hotkeys?.Dispose();
         _lrclib?.Dispose();
         _game?.Dispose();

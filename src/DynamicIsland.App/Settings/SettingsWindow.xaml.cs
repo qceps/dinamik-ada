@@ -19,13 +19,24 @@ public partial class SettingsWindow : Window
     private bool _loading;
     private bool _selfUpdate;
 
-    public SettingsWindow(SettingsService settings, HotkeyService hotkeys, Func<bool> gameModeActive, bool isDemo)
+    private readonly UpdateService? _updates;
+
+    public SettingsWindow(SettingsService settings, HotkeyService hotkeys, Func<bool> gameModeActive, bool isDemo,
+        UpdateService? updates = null, Action? installUpdate = null)
     {
         _settings = settings;
         _hotkeys = hotkeys;
         _gameModeActive = gameModeActive;
         _isDemo = isDemo;
+        _updates = updates;
         InitializeComponent();
+
+        UpdatesBox.Checked += (_, _) => Update(s => s.CheckForUpdates = true);
+        UpdatesBox.Unchecked += (_, _) => Update(s => s.CheckForUpdates = false);
+        CheckUpdateButton.Click += (_, _) => _ = _updates?.CheckAsync();
+        InstallUpdateButton.Click += (_, _) => installUpdate?.Invoke();
+        ReleasesButton.Click += (_, _) => _updates?.OpenReleasePage();
+        RefreshUpdateStatus();
 
         LoadFromSettings(settings.Current);
         settings.Changed += OnSettingsChanged;
@@ -110,6 +121,23 @@ public partial class SettingsWindow : Window
     /// <summary>Kısayol yakalanırken genel kısayolları askıya almak için.</summary>
     public event Action<bool>? HotkeyCaptureChanged;
 
+    /// <summary>Güncelleme bölümünün yazısı ve düğmeleri (servis durum değiştirince çağrılır).</summary>
+    public void RefreshUpdateStatus()
+    {
+        if (_updates is null)
+        {
+            UpdateStatusText.Text = "Güncelleme denetimi kullanılamıyor.";
+            CheckUpdateButton.IsEnabled = InstallUpdateButton.IsEnabled = false;
+            return;
+        }
+
+        UpdateStatusText.Text = _updates.StatusText;
+        var busy = _updates.State is UpdateState.Checking or UpdateState.Downloading;
+        CheckUpdateButton.IsEnabled = !busy;
+        InstallUpdateButton.IsEnabled = !busy && _updates.State == UpdateState.Available;
+        InstallUpdateButton.Content = _updates.CanInstallInPlace ? "Güncelle" : "İndirme sayfasını aç";
+    }
+
     public void RefreshStatus()
     {
         var game = _gameModeActive();
@@ -190,6 +218,7 @@ public partial class SettingsWindow : Window
             LyricsFontBox.SelectedIndex = (int)s.LyricsFont;
             MediaHudBox.IsChecked = s.ShowMediaHud;
             ThemeBox.SelectedIndex = (int)s.Theme;
+            UpdatesBox.IsChecked = s.CheckForUpdates;
             IdleBox.SelectedIndex = s.IdleBehavior == IdleBehavior.Hide ? 1 : 0;
             LoadMonitors(s.MonitorDeviceName);
             UpdateOffsetRange();

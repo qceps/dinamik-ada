@@ -40,6 +40,21 @@ public partial class App : Application
             return;
         }
 
+        // Güncellemeden sonra: eski sürüm kapanana kadar bekle (yoksa tek kopya kilidine takılırız).
+        var afterUpdate = Array.FindIndex(e.Args, a => a.Equals("--after-update", StringComparison.OrdinalIgnoreCase));
+        if (afterUpdate >= 0 && afterUpdate + 1 < e.Args.Length && int.TryParse(e.Args[afterUpdate + 1], out var oldPid))
+        {
+            try
+            {
+                using var old = System.Diagnostics.Process.GetProcessById(oldPid);
+                old.WaitForExit(15000);
+            }
+            catch (ArgumentException)
+            {
+                // zaten kapanmış
+            }
+        }
+
         // Tek kopya: ikinci açılış mevcut kopyanın ayar penceresini öne getirir ve kapanır.
         _mutex = new Mutex(initiallyOwned: true, MutexName, out var createdNew);
         if (!createdNew)
@@ -76,7 +91,7 @@ public partial class App : Application
         var demo = e.Args.Any(a => a.Equals("--demo", StringComparison.OrdinalIgnoreCase));
         var openSettings = e.Args.Any(a => a.Equals("--settings", StringComparison.OrdinalIgnoreCase));
         _host = new AppHost(demo);
-        _host.Start(openSettings);
+        _host.Start(openSettings, justUpdated: afterUpdate >= 0);
     }
 
     private static void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
